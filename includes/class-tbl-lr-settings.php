@@ -2,8 +2,8 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * Settings → TBL Lead Routing: where the leads app is, its API key, how long a
- * visitor may wait, and the defaults each form can override.
+ * Terrific Digital → TBL Lead Routing: where the leads app is, its API key, how
+ * long a visitor may wait, and the defaults each form can override.
  */
 class TBL_LR_Settings {
 
@@ -23,12 +23,34 @@ class TBL_LR_Settings {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_init', array( __CLASS__, 'register' ) );
+		// Before WordPress refuses the old address (it checks access right after admin_menu).
+		add_action( 'admin_menu', array( __CLASS__, 'redirect_old_url' ), 1 );
 		add_action( 'admin_post_tbl_lr_test', array( __CLASS__, 'handle_test' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
 	}
 
+	/**
+	 * The screen sits in the Terrific Digital menu, next to Forms; under Settings
+	 * only when that plugin is inactive, so its warning can still be read.
+	 */
+	protected static function parent() {
+		return defined( 'TD_MENU' ) ? TD_MENU : 'options-general.php';
+	}
+
 	public static function url( $args = array() ) {
-		return add_query_arg( array_merge( array( 'page' => self::SLUG ), $args ), admin_url( 'options-general.php' ) );
+		$base = 'options-general.php' === self::parent() ? 'options-general.php' : 'admin.php';
+		return add_query_arg( array_merge( array( 'page' => self::SLUG ), $args ), admin_url( $base ) );
+	}
+
+	/** 1.0.0 had the screen under Settings; send old links and bookmarks to the new place. */
+	public static function redirect_old_url() {
+		global $pagenow;
+		if ( 'options-general.php' !== $pagenow || 'options-general.php' === self::parent() ) { return; }
+		if ( ! isset( $_GET['page'] ) || self::SLUG !== $_GET['page'] ) { return; }
+		$args = array_map( 'sanitize_text_field', wp_unslash( $_GET ) );
+		unset( $args['page'] );
+		wp_safe_redirect( self::url( $args ) );
+		exit;
 	}
 
 	public static function all() {
@@ -42,7 +64,7 @@ class TBL_LR_Settings {
 	}
 
 	public static function menu() {
-		add_options_page( 'TBL Lead Routing', 'TBL Lead Routing', self::CAP, self::SLUG, array( __CLASS__, 'screen' ) );
+		add_submenu_page( self::parent(), 'TBL Lead Routing', 'TBL Lead Routing', self::CAP, self::SLUG, array( __CLASS__, 'screen' ) );
 	}
 
 	public static function register() {
@@ -83,6 +105,10 @@ class TBL_LR_Settings {
 		?>
 		<div class="wrap">
 			<h1>TBL Lead Routing</h1>
+			<?php
+			// Settings pages show "Settings saved." by themselves; other menus don't.
+			if ( 'options-general.php' !== self::parent() ) { settings_errors(); }
+			?>
 			<p style="max-width:780px">
 				Sends leads from Terrific Forms to the <a href="<?php echo esc_url( $s['base_url'] ); ?>" target="_blank" rel="noopener">Travel by Luxe leads app</a>,
 				which picks the travel designer and creates the Zendesk ticket, then shows the visitor that travel designer's Calendly.
@@ -122,7 +148,7 @@ class TBL_LR_Settings {
 						<th scope="row"><label for="tbl_lr_fallback">Fallback Calendly link</label></th>
 						<td>
 							<input type="url" id="tbl_lr_fallback" class="regular-text" name="<?php echo esc_attr( self::OPT ); ?>[fallback_calendly]" value="<?php echo esc_attr( $s['fallback_calendly'] ); ?>" placeholder="https://calendly.com/…">
-							<p class="description">The round-robin booking page, shown when no travel designer could be picked. A form can set its own.</p>
+							<p class="description">Shown when the leads app can't be reached in time or has no calendar to offer. Use the same link as the fallback owner in the leads app's Settings. A form can set its own.</p>
 						</td>
 					</tr>
 					<tr>

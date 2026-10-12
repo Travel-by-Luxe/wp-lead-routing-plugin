@@ -95,7 +95,7 @@ class TBL_LR_Forms {
 		<p>
 			<label for="tbl_lr_fallback"><strong>Fallback Calendly link</strong></label>
 			<input type="url" id="tbl_lr_fallback" class="widefat" name="tbl_lr[fallback_calendly]" value="<?php echo esc_attr( $cfg['fallback_calendly'] ); ?>" placeholder="<?php echo esc_attr( TBL_LR_Settings::get( 'fallback_calendly' ) ?: 'https://calendly.com/…' ); ?>">
-			<span class="description">When no travel designer could be picked. Blank uses the one in Settings → TBL Lead Routing.</span>
+			<span class="description">When no travel designer could be picked. Blank uses the one in Terrific Digital → TBL Lead Routing.</span>
 		</p>
 
 		<p>

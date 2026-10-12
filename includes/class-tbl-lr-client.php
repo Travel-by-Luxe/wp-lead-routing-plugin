@@ -83,7 +83,7 @@ class TBL_LR_Client {
 	 */
 	public static function send_submission( $payload ) {
 		if ( ! TBL_LR_Settings::get( 'api_key' ) ) {
-			self::remember( false, 0, 'No API key in Settings → TBL Lead Routing.' );
+			self::remember( false, 0, 'No API key in Terrific Digital → TBL Lead Routing.' );
 			return null;
 		}
 		$started  = microtime( true );

@@ -29,7 +29,7 @@ Updates then appear under **Plugins** and **Dashboard → Updates** like any oth
 
 ## Set up
 
-1. **Settings → TBL Lead Routing**
+1. **Terrific Digital → TBL Lead Routing**
    - Paste the leads app API key and save. It stays on the server and is never sent to browsers.
    - Set the **fallback Calendly link** (the booking page to show when no travel designer could be picked).
    - Click **Test connection**.

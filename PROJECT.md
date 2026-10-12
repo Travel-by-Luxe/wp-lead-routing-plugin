@@ -14,7 +14,7 @@ Read this before changing the add-on. The user-facing guide is README.md. This f
 | File | What it does |
 | --- | --- |
 | `tbl-lead-routing.php` | Header, constants, update checker, bootstraps the classes on `plugins_loaded` (priority 20, after Terrific Digital). |
-| `includes/class-tbl-lr-settings.php` | Settings → TBL Lead Routing. Option `tbl_lr_settings`. Capability `edit_pages`, matching Terrific Digital. |
+| `includes/class-tbl-lr-settings.php` | Terrific Digital → TBL Lead Routing (under Settings if Terrific Digital is inactive). Option `tbl_lr_settings`. Capability `edit_pages`, matching Terrific Digital. |
 | `includes/class-tbl-lr-forms.php` | The per-form box on the `terrific_form` edit screen. Post meta `_tbl_lr`. |
 | `includes/class-tbl-lr-client.php` | HTTP to the leads app: rebuilds the webhook payload, sends steps (non-blocking) and the final submission (blocking). |
 | `includes/class-tbl-lr-submit.php` | The submit hooks and the output buffer that adds `data.tbl_routing` to the reply. |
