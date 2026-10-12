@@ -66,9 +66,9 @@ redirect or popup ◀── reply
 
 1. Bump the version in **both** places in `tbl-lead-routing.php`: the `Version:` header and `TBL_LR_VERSION`.
 2. Commit and push to `main`.
-3. Tag and push: `git tag v1.0.1 && git push origin v1.0.1`.
+3. On GitHub, open **Actions → Release → Run workflow**, enter the version (e.g. `1.0.1`) and run it. Pushing a `v1.0.1` tag does the same.
 
-The **Release** workflow checks that the tag matches the version, builds `tbl-lead-routing.zip` and publishes the GitHub release. Sites then see the update within about 12 hours, or right away with **Check for updates** on the Plugins screen.
+The **Release** workflow checks that the version matches the plugin file, builds `tbl-lead-routing.zip`, and publishes the GitHub release with its `vX.Y.Z` tag. Sites then see the update within about 12 hours, or right away with **Check for updates** on the Plugins screen.
 
 ## License
 
