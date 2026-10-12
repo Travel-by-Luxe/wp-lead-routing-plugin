@@ -21,12 +21,13 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # Pinned: the build relies on php, rsync and zip being on the runner image.
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Work out the version
         env:
