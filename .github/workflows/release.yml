@@ -1,0 +1,60 @@
+name: Release
+
+# Triggered when a vX.Y.Z tag is pushed. Builds tbl-lead-routing.zip (with a
+# top-level tbl-lead-routing/ folder) and attaches it to a GitHub release.
+# The plugin's update checker on each WordPress site reads that ZIP as the
+# update, so WordPress shows "Update available" in the admin.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@v4
+
+      - name: Verify the tag matches the plugin version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CONST=$(grep -E "define\( 'TBL_LR_VERSION', '" tbl-lead-routing.php | sed -E "s/.*'([0-9.]+)'.*/\1/")
+          HEADER=$(grep -E "^ \* Version:" tbl-lead-routing.php | sed -E "s/.*Version:[[:space:]]*([0-9.]+).*/\1/")
+          echo "tag:            $TAG"
+          echo "TBL_LR_VERSION: $CONST"
+          echo "Version header: $HEADER"
+          if [ "$TAG" != "$CONST" ] || [ "$TAG" != "$HEADER" ]; then
+            echo "::error::Tag v$TAG must match both TBL_LR_VERSION and the Version header in tbl-lead-routing.php"
+            exit 1
+          fi
+
+      - name: Check PHP syntax
+        run: |
+          find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Build tbl-lead-routing.zip
+        run: |
+          STAGE=$(mktemp -d)
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.gitignore' \
+            --exclude='.claude' \
+            --exclude='PROJECT.md' \
+            --exclude='*.zip' \
+            --exclude='node_modules' \
+            ./ "$STAGE/tbl-lead-routing/"
+          ( cd "$STAGE" && zip -rq "$GITHUB_WORKSPACE/tbl-lead-routing.zip" tbl-lead-routing )
+          unzip -l tbl-lead-routing.zip | head -30
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            tbl-lead-routing.zip \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

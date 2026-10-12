@@ -1,0 +1,196 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+/**
+ * Settings → TBL Lead Routing: where the leads app is, its API key, how long a
+ * visitor may wait, and the defaults each form can override.
+ */
+class TBL_LR_Settings {
+
+	const OPT   = 'tbl_lr_settings';
+	const GROUP = 'tbl_lr_group';
+	const SLUG  = 'tbl-lead-routing';
+	const CAP   = 'edit_pages'; // matches Terrific Digital (see its PROJECT.md: manage_options is denied on the LP site)
+
+	const DEFAULTS = array(
+		'base_url'          => 'https://leads.travelbyluxe.com',
+		'api_key'           => '',
+		'timeout'           => 8,
+		'fallback_calendly' => '',
+		'wait_text'         => 'Finding your travel designer…',
+	);
+
+	public static function init() {
+		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
+		add_action( 'admin_init', array( __CLASS__, 'register' ) );
+		add_action( 'admin_post_tbl_lr_test', array( __CLASS__, 'handle_test' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
+	}
+
+	public static function url( $args = array() ) {
+		return add_query_arg( array_merge( array( 'page' => self::SLUG ), $args ), admin_url( 'options-general.php' ) );
+	}
+
+	public static function all() {
+		$saved = get_option( self::OPT, array() );
+		return wp_parse_args( is_array( $saved ) ? $saved : array(), self::DEFAULTS );
+	}
+
+	public static function get( $key ) {
+		$all = self::all();
+		return isset( $all[ $key ] ) ? $all[ $key ] : null;
+	}
+
+	public static function menu() {
+		add_options_page( 'TBL Lead Routing', 'TBL Lead Routing', self::CAP, self::SLUG, array( __CLASS__, 'screen' ) );
+	}
+
+	public static function register() {
+		register_setting( self::GROUP, self::OPT, array( 'sanitize_callback' => array( __CLASS__, 'sanitize' ) ) );
+		add_filter( 'option_page_capability_' . self::GROUP, function () { return self::CAP; } );
+	}
+
+	public static function sanitize( $in ) {
+		$current = self::all();
+		$in      = is_array( $in ) ? $in : array();
+		$key     = isset( $in['api_key'] ) ? trim( (string) $in['api_key'] ) : '';
+		return array(
+			'base_url'          => isset( $in['base_url'] ) && '' !== trim( $in['base_url'] ) ? untrailingslashit( esc_url_raw( trim( $in['base_url'] ) ) ) : self::DEFAULTS['base_url'],
+			// Blank keeps the stored key: it is never printed back into the form.
+			'api_key'           => '' !== $key ? sanitize_text_field( $key ) : $current['api_key'],
+			'timeout'           => isset( $in['timeout'] ) ? max( 2, min( 20, (int) $in['timeout'] ) ) : self::DEFAULTS['timeout'],
+			'fallback_calendly' => self::calendly_url( isset( $in['fallback_calendly'] ) ? $in['fallback_calendly'] : '' ),
+			'wait_text'         => isset( $in['wait_text'] ) && '' !== trim( $in['wait_text'] ) ? sanitize_text_field( $in['wait_text'] ) : self::DEFAULTS['wait_text'],
+		);
+	}
+
+	/** A Calendly link, or '' - only calendly.com links are ever shown to visitors. */
+	public static function calendly_url( $value ) {
+		$url = esc_url_raw( trim( (string) $value ) );
+		if ( '' === $url ) { return ''; }
+		$host = wp_parse_url( $url, PHP_URL_HOST );
+		return ( 'https' === wp_parse_url( $url, PHP_URL_SCHEME ) && $host && preg_match( '/(^|\.)calendly\.com$/', $host ) ) ? $url : '';
+	}
+
+	/* ------------------------------------------------------------- Screen */
+
+	public static function screen() {
+		if ( ! current_user_can( self::CAP ) ) { return; }
+		$s    = self::all();
+		$last = get_option( TBL_LR_Client::LAST_OPT );
+		$test = isset( $_GET['tbl_lr_test'] ) ? sanitize_text_field( wp_unslash( $_GET['tbl_lr_test'] ) ) : '';
+		$msg  = isset( $_GET['tbl_lr_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['tbl_lr_msg'] ) ) : '';
+		?>
+		<div class="wrap">
+			<h1>TBL Lead Routing</h1>
+			<p style="max-width:780px">
+				Sends leads from Terrific Forms to the <a href="<?php echo esc_url( $s['base_url'] ); ?>" target="_blank" rel="noopener">Travel by Luxe leads app</a>,
+				which picks the travel designer and creates the Zendesk ticket, then shows the visitor that travel designer's Calendly.
+				Turn it on per form, in the <strong>TBL Lead Routing</strong> box on the form's edit screen.
+			</p>
+
+			<?php if ( 'ok' === $test ) : ?>
+				<div class="notice notice-success"><p><?php echo esc_html( $msg ); ?></p></div>
+			<?php elseif ( 'fail' === $test ) : ?>
+				<div class="notice notice-error"><p><?php echo esc_html( $msg ); ?></p></div>
+			<?php endif; ?>
+
+			<?php self::compat_box(); ?>
+
+			<form method="post" action="options.php">
+				<?php settings_fields( self::GROUP ); ?>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="tbl_lr_base">Leads app address</label></th>
+						<td><input type="url" id="tbl_lr_base" class="regular-text" name="<?php echo esc_attr( self::OPT ); ?>[base_url]" value="<?php echo esc_attr( $s['base_url'] ); ?>"></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbl_lr_key">API key</label></th>
+						<td>
+							<input type="password" id="tbl_lr_key" class="regular-text" autocomplete="off" name="<?php echo esc_attr( self::OPT ); ?>[api_key]" value="" placeholder="<?php echo $s['api_key'] ? esc_attr( 'Saved - leave blank to keep' ) : 'tbl_leads_…'; ?>">
+							<p class="description">Create one in the leads app under Settings → API keys. It stays on this server and is never sent to visitors' browsers.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbl_lr_timeout">Longest wait</label></th>
+						<td>
+							<input type="number" id="tbl_lr_timeout" min="2" max="20" style="width:80px" name="<?php echo esc_attr( self::OPT ); ?>[timeout]" value="<?php echo esc_attr( $s['timeout'] ); ?>"> seconds
+							<p class="description">If the leads app has not answered by then, the visitor gets the fallback calendar. The lead is still saved by Terrific Forms either way.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbl_lr_fallback">Fallback Calendly link</label></th>
+						<td>
+							<input type="url" id="tbl_lr_fallback" class="regular-text" name="<?php echo esc_attr( self::OPT ); ?>[fallback_calendly]" value="<?php echo esc_attr( $s['fallback_calendly'] ); ?>" placeholder="https://calendly.com/…">
+							<p class="description">The round-robin booking page, shown when no travel designer could be picked. A form can set its own.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbl_lr_wait">"Please wait" text</label></th>
+						<td><input type="text" id="tbl_lr_wait" class="regular-text" name="<?php echo esc_attr( self::OPT ); ?>[wait_text]" value="<?php echo esc_attr( $s['wait_text'] ); ?>"></td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="tbl_lr_test">
+				<?php wp_nonce_field( 'tbl_lr_test' ); ?>
+				<?php submit_button( 'Test connection', 'secondary', 'submit', false ); ?>
+			</form>
+
+			<h2 class="title" style="margin-top:2em">Last lead sent</h2>
+			<?php if ( is_array( $last ) ) : ?>
+				<p>
+					<?php echo esc_html( wp_date( 'j M Y, H:i:s', (int) $last['time'] ) ); ?> -
+					<strong style="color:<?php echo $last['ok'] ? '#008a20' : '#b32d2e'; ?>"><?php echo $last['ok'] ? 'answered' : 'failed'; ?></strong>
+					in <?php echo esc_html( number_format_i18n( (float) $last['seconds'], 2 ) ); ?> s:
+					<?php echo esc_html( $last['message'] ); ?>
+				</p>
+			<?php else : ?>
+				<p class="description">Nothing sent yet.</p>
+			<?php endif; ?>
+
+			<h2 class="title" style="margin-top:2em">Thank-you page</h2>
+			<p style="max-width:780px">For forms set to <em>redirect</em>, put this shortcode where the calendar should appear on the thank-you page (the form's own Redirect action decides which page that is):</p>
+			<p><code>[tbl_calendly height="700"]</code> &nbsp; and, optionally, <code>[tbl_travel_designer fallback="our team"]</code> for the travel designer's first name.</p>
+		</div>
+		<?php
+	}
+
+	/** Shows whether Terrific Digital is present and at the version this add-on was tested with. */
+	protected static function compat_box() {
+		if ( ! tbl_lr_forms_available() ) {
+			echo '<div class="notice notice-error inline"><p><strong>Terrific Digital is not active.</strong> This add-on works with its Terrific Forms and does nothing without it.</p></div>';
+			return;
+		}
+		$version = tbl_lr_td_version();
+		if ( version_compare( $version, TBL_LR_TESTED_TD_VERSION, '>' ) ) {
+			printf(
+				'<div class="notice notice-warning inline"><p><strong>Terrific Digital is now %1$s; this add-on was tested with %2$s.</strong> Submit a routed form once (on staging) to check the "Please wait" overlay, the popup and the thank-you calendar still work, then update the add-on. If they ever stop working, leads are still delivered and the form falls back to its normal thank-you behaviour.</p></div>',
+				esc_html( $version ),
+				esc_html( TBL_LR_TESTED_TD_VERSION )
+			);
+		}
+	}
+
+	public static function notices() {
+		if ( tbl_lr_forms_available() || ! current_user_can( self::CAP ) ) { return; }
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( $screen && 'plugins' === $screen->id ) {
+			echo '<div class="notice notice-warning"><p><strong>TBL Lead Routing</strong> needs the Terrific Digital plugin to be active.</p></div>';
+		}
+	}
+
+	/** "Test connection": checks the address and key against the leads app. */
+	public static function handle_test() {
+		if ( ! current_user_can( self::CAP ) ) { wp_die( 'Not allowed.' ); }
+		check_admin_referer( 'tbl_lr_test' );
+		$result = TBL_LR_Client::check_key();
+		wp_safe_redirect( self::url( array(
+			'tbl_lr_test' => $result['ok'] ? 'ok' : 'fail',
+			'tbl_lr_msg'  => rawurlencode( $result['message'] ),
+		) ) );
+		exit;
+	}
+}
