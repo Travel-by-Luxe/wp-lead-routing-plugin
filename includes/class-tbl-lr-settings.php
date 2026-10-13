@@ -23,6 +23,9 @@ class TBL_LR_Settings {
 		'calendly_text'               => '21313b',
 		'calendly_primary'            => '2fa3a3',
 		'calendly_hide_cookie_banner' => 1,
+		// A thank-you page the site builds itself (no [tbl_calendly] on it): the calendar
+		// goes in its #calendly_widget, or in a section after this element. Blank: off.
+		'thanks_after'                => '.ty-next-steps',
 	);
 
 	public static function init() {
@@ -92,7 +95,14 @@ class TBL_LR_Settings {
 			'calendly_text'               => self::hex( $in, 'calendly_text' ),
 			'calendly_primary'            => self::hex( $in, 'calendly_primary' ),
 			'calendly_hide_cookie_banner' => empty( $in['calendly_hide_cookie_banner'] ) ? 0 : 1,
+			'thanks_after'                => isset( $in['thanks_after'] ) ? self::selector( $in['thanks_after'] ) : self::DEFAULTS['thanks_after'],
 		);
+	}
+
+	/** A CSS selector, kept to characters selectors use. */
+	protected static function selector( $value ) {
+		$value = trim( sanitize_text_field( (string) $value ) );
+		return preg_match( '/^[\w\s.#:>+~,\[\]="\'()*^$|-]*$/u', $value ) ? $value : self::DEFAULTS['thanks_after'];
 	}
 
 	/** A colour as Calendly takes it ("2fa3a3"); blank means Calendly's own, anything else the default. */
@@ -186,6 +196,13 @@ class TBL_LR_Settings {
 							<?php endforeach; ?>
 							<p><label><input type="checkbox" name="<?php echo esc_attr( self::OPT ); ?>[calendly_hide_cookie_banner]" value="1" <?php checked( ! empty( $s['calendly_hide_cookie_banner'] ) ); ?>> Hide Calendly's cookie banner</label></p>
 							<p class="description">For the popup and the thank-you page calendar; the defaults match the site's own thank-you page. A Calendly link that sets its own colours keeps them.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbl_lr_thanks_after">Thank-you page built by the site</label></th>
+						<td>
+							<input type="text" id="tbl_lr_thanks_after" class="regular-text code" name="<?php echo esc_attr( self::OPT ); ?>[thanks_after]" value="<?php echo esc_attr( $s['thanks_after'] ); ?>" placeholder="Blank: off">
+							<p class="description">For a thank-you page without <code>[tbl_calendly]</code> on it, such as one the site's own code builds. A visitor who was just routed gets the travel designer's calendar in the page's own Calendly spot (<code>#calendly_widget</code>) or, if there is none, in a "Book a time with …" section after this element. Other visitors see the page as before. Blank turns this off.</p>
 						</td>
 					</tr>
 					<tr>

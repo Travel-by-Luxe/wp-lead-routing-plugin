@@ -11,7 +11,9 @@
  * that the add-on's PHP side added to the reply.
  *
  * On the thank-you page: fills [tbl_calendly] and [tbl_travel_designer] from
- * the `tbl_cal` / `tbl_td` URL parameters, or from this tab's last routing.
+ * the `tbl_cal` / `tbl_td` URL parameters, or from this tab's last routing. A
+ * thank-you page the site builds itself gets the calendar added (Settings →
+ * "Thank-you page built by the site").
  */
 (function () {
 	'use strict';
@@ -232,17 +234,55 @@
 
 	/* ---------------------------------------------------- Thank-you page */
 
-	function thankYou() {
-		var calendars = document.querySelectorAll('.tbl-calendly');
-		var names     = document.querySelectorAll('.tbl-travel-designer');
-		if (!calendars.length && !names.length) { return; }
+	/**
+	 * A thank-you page the site builds itself has no [tbl_calendly] on it. For a
+	 * visitor who was just routed, the calendar goes in the site's own Calendly
+	 * spot (#calendly_widget) or, failing that, in a section after the element
+	 * Settings name. Everyone else sees the page exactly as before.
+	 */
+	function addCalendarSpot(td) {
+		if (!cfg.thanksAfter || document.querySelector('.tbl-calendly')) { return; }
+		var own = document.getElementById('calendly_widget');
+		if (own) {
+			// A new element, so the site's own script finds no spot to fill with the team calendar.
+			var spot = document.createElement('div');
+			spot.className = (own.className ? own.className + ' ' : '') + 'tbl-calendly';
+			own.parentNode.replaceChild(spot, own);
+			return;
+		}
+		var anchor = null;
+		try { anchor = document.querySelector(cfg.thanksAfter); } catch (e) { /* not a valid selector */ }
+		if (!anchor || !anchor.parentNode) { return; }
+		var section = document.createElement('section');
+		section.className = 'tbl-lr-book';
+		var title = document.createElement('h2');
+		title.className = 'tbl-lr-book-title';
+		title.textContent = 'Want to skip ahead? Book a time with ' + (td || 'your Travel Designer') + '.';
+		var lead = document.createElement('p');
+		lead.className = 'tbl-lr-book-lead';
+		lead.textContent = "If you'd like to talk about your trip sooner, pick a time below.";
+		var calendar = document.createElement('div');
+		calendar.className = 'tbl-calendly';
+		calendar.style.height = '700px';
+		section.appendChild(title);
+		section.appendChild(lead);
+		section.appendChild(calendar);
+		anchor.parentNode.insertBefore(section, anchor.nextSibling);
+	}
 
+	function thankYou() {
 		var qs   = new URLSearchParams(window.location.search);
 		var last = stored();
 		var fromUrl = qs.get('tbl_cal');
 		var url  = isCalendly(fromUrl) ? fromUrl : (last && isCalendly(last.calendly_url) ? last.calendly_url : '');
 		var td   = qs.get('tbl_td') || (last && last.td_first_name) || '';
 		var prefill = prefillOf(last);
+
+		if (url) { addCalendarSpot(td); }
+
+		var calendars = document.querySelectorAll('.tbl-calendly');
+		var names     = document.querySelectorAll('.tbl-travel-designer');
+		if (!calendars.length && !names.length) { return; }
 
 		if (td) {
 			Array.prototype.forEach.call(names, function (el) { el.textContent = td; });

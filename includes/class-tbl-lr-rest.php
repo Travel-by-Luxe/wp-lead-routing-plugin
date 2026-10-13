@@ -154,6 +154,7 @@ class TBL_LR_Rest {
 				'calendly_text'               => $settings['calendly_text'],
 				'calendly_primary'            => $settings['calendly_primary'],
 				'calendly_hide_cookie_banner' => (bool) $settings['calendly_hide_cookie_banner'],
+				'thanks_after'                => $settings['thanks_after'],
 			),
 			'last_lead'         => get_option( TBL_LR_Client::LAST_OPT, null ),
 			'forms_routed'      => count( TBL_LR_Forms::enabled_forms() ),
