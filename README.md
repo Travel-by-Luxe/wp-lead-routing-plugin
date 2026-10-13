@@ -32,6 +32,7 @@ Updates then appear under **Plugins** and **Dashboard → Updates** like any oth
 1. **Terrific Digital → TBL Lead Routing**
    - Paste the leads app API key and save. It stays on the server and is never sent to browsers.
    - Set the **fallback Calendly link** (the booking page to show when no travel designer could be picked).
+   - Optionally change the **Calendly colours**. They default to the site's thank-you page, and Calendly's cookie banner is hidden there too.
    - Click **Test connection**.
 2. **On each form** (Terrific Forms → edit the form), use the **TBL Lead Routing** box:
    - Tick **Route leads from this form**.
@@ -73,7 +74,7 @@ Secrets never come back: the API key only as "set" plus its first characters, we
 | Route | What it does |
 |---|---|
 | `GET /status` | Version, site, Terrific Digital compatibility, settings, last lead sent, forms routed |
-| `POST /settings` | Change settings: any of `base_url`, `api_key`, `timeout`, `fallback_calendly`, `wait_text` |
+| `POST /settings` | Change settings: any of `base_url`, `api_key`, `timeout`, `fallback_calendly`, `wait_text`, `calendly_background`, `calendly_text`, `calendly_primary` (hex, blank for Calendly's own), `calendly_hide_cookie_banner` |
 | `POST /test` | The settings screen's "Test connection" |
 | `GET /forms` | Every form: routing, its actions (webhook / redirect / dataLayer), the pages it is on, warnings |
 | `GET /forms/{id}` | One form, with its fields |

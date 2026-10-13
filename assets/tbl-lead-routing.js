@@ -52,6 +52,18 @@
 		} catch (e) { return url; }
 	}
 
+	/** The site's Calendly colours (Settings); a link's own parameters win. */
+	function themed(url) {
+		var theme = cfg.theme || {};
+		try {
+			var u = new URL(url);
+			Object.keys(theme).forEach(function (key) {
+				if (theme[key] && !u.searchParams.has(key)) { u.searchParams.set(key, theme[key]); }
+			});
+			return u.toString();
+		} catch (e) { return url; }
+	}
+
 	function save(r) {
 		try {
 			window.sessionStorage.setItem(STORE, JSON.stringify({
@@ -178,7 +190,7 @@
 		// plugin then shows its own inline thank-you, and the calendar opens on top.
 		data.redirect = '';
 		hideOverlay();
-		var url = r.calendly_url;
+		var url = themed(r.calendly_url);
 		var prefill = prefillOf(r);
 		setTimeout(function () { openPopup(url, prefill); }, 300);
 
@@ -239,6 +251,7 @@
 		Array.prototype.forEach.call(calendars, function (el) {
 			var target = url || el.getAttribute('data-fallback') || cfg.fallback || '';
 			if (!isCalendly(target)) { el.style.display = 'none'; return; }
+			target = themed(target);
 			loadCalendly().then(function (Calendly) {
 				Calendly.initInlineWidget({ url: target, parentElement: el, prefill: prefill });
 			}, function () {

@@ -18,6 +18,11 @@ class TBL_LR_Settings {
 		'timeout'           => 8,
 		'fallback_calendly' => '',
 		'wait_text'         => 'Finding your travel designer…',
+		// The calendar's look, as on the site's thank-you page (hex, no #).
+		'calendly_background'         => 'fdfbf9',
+		'calendly_text'               => '21313b',
+		'calendly_primary'            => '2fa3a3',
+		'calendly_hide_cookie_banner' => 1,
 	);
 
 	public static function init() {
@@ -83,7 +88,29 @@ class TBL_LR_Settings {
 			'timeout'           => isset( $in['timeout'] ) ? max( 2, min( 20, (int) $in['timeout'] ) ) : self::DEFAULTS['timeout'],
 			'fallback_calendly' => self::calendly_url( isset( $in['fallback_calendly'] ) ? $in['fallback_calendly'] : '' ),
 			'wait_text'         => isset( $in['wait_text'] ) && '' !== trim( $in['wait_text'] ) ? sanitize_text_field( $in['wait_text'] ) : self::DEFAULTS['wait_text'],
+			'calendly_background'         => self::hex( $in, 'calendly_background' ),
+			'calendly_text'               => self::hex( $in, 'calendly_text' ),
+			'calendly_primary'            => self::hex( $in, 'calendly_primary' ),
+			'calendly_hide_cookie_banner' => empty( $in['calendly_hide_cookie_banner'] ) ? 0 : 1,
 		);
+	}
+
+	/** A colour as Calendly takes it ("2fa3a3"); blank means Calendly's own, anything else the default. */
+	protected static function hex( $in, $key ) {
+		$value = isset( $in[ $key ] ) ? ltrim( trim( (string) $in[ $key ] ), '#' ) : self::DEFAULTS[ $key ];
+		if ( '' === $value ) { return ''; }
+		return preg_match( '/^[0-9a-f]{6}$/i', $value ) ? strtolower( $value ) : self::DEFAULTS[ $key ];
+	}
+
+	/** Calendly's embed parameters for the popup and the thank-you calendar. A link's own parameters win. */
+	public static function calendly_theme() {
+		$s     = self::all();
+		$theme = array();
+		if ( ! empty( $s['calendly_hide_cookie_banner'] ) ) { $theme['hide_gdpr_banner'] = '1'; }
+		foreach ( array( 'background_color' => 'calendly_background', 'text_color' => 'calendly_text', 'primary_color' => 'calendly_primary' ) as $param => $key ) {
+			if ( '' !== (string) $s[ $key ] ) { $theme[ $param ] = (string) $s[ $key ]; }
+		}
+		return $theme;
 	}
 
 	/** A Calendly link, or '' - only calendly.com links are ever shown to visitors. */
@@ -149,6 +176,16 @@ class TBL_LR_Settings {
 						<td>
 							<input type="url" id="tbl_lr_fallback" class="regular-text" name="<?php echo esc_attr( self::OPT ); ?>[fallback_calendly]" value="<?php echo esc_attr( $s['fallback_calendly'] ); ?>" placeholder="https://calendly.com/…">
 							<p class="description">Shown when the leads app can't be reached in time or has no calendar to offer. Use the same link as the fallback owner in the leads app's Settings. A form can set its own.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">Calendly colours</th>
+						<td>
+							<?php foreach ( array( 'calendly_background' => 'Background', 'calendly_text' => 'Text', 'calendly_primary' => 'Buttons and links' ) as $key => $label ) : ?>
+								<label style="margin-right:16px"><input type="color" name="<?php echo esc_attr( self::OPT ); ?>[<?php echo esc_attr( $key ); ?>]" value="#<?php echo esc_attr( $s[ $key ] ? $s[ $key ] : self::DEFAULTS[ $key ] ); ?>" style="vertical-align:middle"> <?php echo esc_html( $label ); ?></label>
+							<?php endforeach; ?>
+							<p><label><input type="checkbox" name="<?php echo esc_attr( self::OPT ); ?>[calendly_hide_cookie_banner]" value="1" <?php checked( ! empty( $s['calendly_hide_cookie_banner'] ) ); ?>> Hide Calendly's cookie banner</label></p>
+							<p class="description">For the popup and the thank-you page calendar; the defaults match the site's own thank-you page. A Calendly link that sets its own colours keeps them.</p>
 						</td>
 					</tr>
 					<tr>

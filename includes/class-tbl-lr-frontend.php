@@ -45,6 +45,7 @@ class TBL_LR_Frontend {
 			'forms'    => (object) $forms,
 			'waitText' => (string) TBL_LR_Settings::get( 'wait_text' ),
 			'fallback' => (string) TBL_LR_Settings::get( 'fallback_calendly' ),
+			'theme'    => (object) TBL_LR_Settings::calendly_theme(),
 		) );
 	}
 
