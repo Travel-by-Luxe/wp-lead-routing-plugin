@@ -189,7 +189,9 @@ class TBL_LR_Rest {
 			foreach ( isset( $step['fields'] ) && is_array( $step['fields'] ) ? $step['fields'] : array() as $field ) {
 				$out['fields'][] = array(
 					'step'     => $n + 1,
-					'name'     => isset( $field['name'] ) ? (string) $field['name'] : '',
+					// The forms plugin calls a field's submitted name its "key" (static fields have none).
+					'key'      => isset( $field['key'] ) ? (string) $field['key'] : ( isset( $field['name'] ) ? (string) $field['name'] : '' ),
+					'id'       => isset( $field['id'] ) ? (string) $field['id'] : '',
 					'label'    => isset( $field['label'] ) ? wp_strip_all_tags( (string) $field['label'] ) : '',
 					'type'     => isset( $field['type'] ) ? (string) $field['type'] : '',
 					'required' => ! empty( $field['required'] ),

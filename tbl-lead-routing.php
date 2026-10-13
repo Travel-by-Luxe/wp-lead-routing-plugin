@@ -3,7 +3,7 @@
  * Plugin Name:       TBL Lead Routing
  * Plugin URI:        https://github.com/Travel-by-Luxe/wp-lead-routing-plugin
  * Description:       Sends Terrific Forms leads to the Travel by Luxe leads app (leads.travelbyluxe.com), which picks the travel designer, and shows the visitor that travel designer's Calendly - on the thank-you page or in a popup, chosen per form.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Requires Plugins:  terrific-digital
@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-define( 'TBL_LR_VERSION', '1.2.0' );
+define( 'TBL_LR_VERSION', '1.2.1' );
 define( 'TBL_LR_FILE', __FILE__ );
 define( 'TBL_LR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TBL_LR_URL', plugin_dir_url( __FILE__ ) );
