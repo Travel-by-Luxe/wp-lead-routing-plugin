@@ -26,6 +26,16 @@ class TBL_LR_Settings {
 		// A thank-you page the site builds itself (no [tbl_calendly] on it): the calendar
 		// goes in its #calendly_widget, or in a section after this element. Blank: off.
 		'thanks_after'                => '.ty-next-steps',
+		// The booking calendar only for budgets that can carry a trip: at least
+		// booking_min_total, and booking_min_adult per adult plus booking_min_child
+		// per child, in the form's own currency. Read from the fields named in
+		// booking_fields (budget, adults, children); below it, booking_hide goes.
+		'booking_rule'                => 1,
+		'booking_min_total'           => 8000,
+		'booking_min_adult'           => 5000,
+		'booking_min_child'           => 3000,
+		'booking_fields'              => 'budget, adults, children',
+		'booking_hide'                => '.tbl-thanks-cta, .tbl-thanks-booking, .tbl-lr-book, .tbl-calendly',
 	);
 
 	public static function init() {
@@ -95,14 +105,52 @@ class TBL_LR_Settings {
 			'calendly_text'               => self::hex( $in, 'calendly_text' ),
 			'calendly_primary'            => self::hex( $in, 'calendly_primary' ),
 			'calendly_hide_cookie_banner' => empty( $in['calendly_hide_cookie_banner'] ) ? 0 : 1,
-			'thanks_after'                => isset( $in['thanks_after'] ) ? self::selector( $in['thanks_after'] ) : self::DEFAULTS['thanks_after'],
+			'thanks_after'                => isset( $in['thanks_after'] ) ? self::selector( $in['thanks_after'], 'thanks_after' ) : self::DEFAULTS['thanks_after'],
+			'booking_rule'                => empty( $in['booking_rule'] ) ? 0 : 1,
+			'booking_min_total'           => self::amount( $in, 'booking_min_total' ),
+			'booking_min_adult'           => self::amount( $in, 'booking_min_adult' ),
+			'booking_min_child'           => self::amount( $in, 'booking_min_child' ),
+			'booking_fields'              => implode( ', ', self::booking_keys( isset( $in['booking_fields'] ) ? $in['booking_fields'] : '' ) ),
+			// Never blank: a rule that leaves nothing out would quietly do nothing.
+			'booking_hide'                => isset( $in['booking_hide'] ) && '' !== self::selector( $in['booking_hide'], 'booking_hide' ) ? self::selector( $in['booking_hide'], 'booking_hide' ) : self::DEFAULTS['booking_hide'],
+		);
+	}
+
+	/** A whole amount of money, 0 or more; missing or not a number keeps the default. */
+	protected static function amount( $in, $key ) {
+		if ( ! isset( $in[ $key ] ) || '' === trim( (string) $in[ $key ] ) || ! is_numeric( str_replace( ',', '', (string) $in[ $key ] ) ) ) {
+			return self::DEFAULTS[ $key ];
+		}
+		return min( 10000000, max( 0, (int) round( (float) str_replace( ',', '', (string) $in[ $key ] ) ) ) );
+	}
+
+	/** The form fields the booking rule reads: budget, adults, children - in that order. */
+	public static function booking_keys( $value ) {
+		$keys = array_values( array_filter( array_map( 'sanitize_key', explode( ',', (string) $value ) ) ) );
+		$defaults = explode( ', ', self::DEFAULTS['booking_fields'] );
+		return 3 === count( $keys ) ? $keys : $defaults;
+	}
+
+	/** The booking rule as the visitor's browser uses it, or null when it is off. */
+	public static function booking_rule() {
+		$s = self::all();
+		if ( empty( $s['booking_rule'] ) ) { return null; }
+		$keys = self::booking_keys( $s['booking_fields'] );
+		return array(
+			'minTotal' => (int) $s['booking_min_total'],
+			'perAdult' => (int) $s['booking_min_adult'],
+			'perChild' => (int) $s['booking_min_child'],
+			'budget'   => $keys[0],
+			'adults'   => $keys[1],
+			'children' => $keys[2],
+			'hide'     => (string) $s['booking_hide'],
 		);
 	}
 
 	/** A CSS selector, kept to characters selectors use. */
-	protected static function selector( $value ) {
+	protected static function selector( $value, $key ) {
 		$value = trim( sanitize_text_field( (string) $value ) );
-		return preg_match( '/^[\w\s.#:>+~,\[\]="\'()*^$|-]*$/u', $value ) ? $value : self::DEFAULTS['thanks_after'];
+		return preg_match( '/^[\w\s.#:>+~,\[\]="\'()*^$|-]*$/u', $value ) ? $value : self::DEFAULTS[ $key ];
 	}
 
 	/** A colour as Calendly takes it ("2fa3a3"); blank means Calendly's own, anything else the default. */
@@ -203,6 +251,24 @@ class TBL_LR_Settings {
 						<td>
 							<input type="text" id="tbl_lr_thanks_after" class="regular-text code" name="<?php echo esc_attr( self::OPT ); ?>[thanks_after]" value="<?php echo esc_attr( $s['thanks_after'] ); ?>" placeholder="Blank: off">
 							<p class="description">For a thank-you page without <code>[tbl_calendly]</code> on it, such as one the site's own code builds. A visitor who was just routed gets the travel designer's calendar in the page's own Calendly spot (<code>#calendly_widget</code>) or, if there is none, in a "Book a time with …" section after this element. Other visitors see the page as before. Blank turns this off.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">Booking calendar</th>
+						<td>
+							<label><input type="checkbox" name="<?php echo esc_attr( self::OPT ); ?>[booking_rule]" value="1" <?php checked( ! empty( $s['booking_rule'] ) ); ?>> Only offer the booking button and calendar when the budget is high enough</label>
+							<p style="margin-top:8px">
+								<?php foreach ( array( 'booking_min_total' => 'At least', 'booking_min_adult' => 'and per adult', 'booking_min_child' => 'plus per child' ) as $key => $label ) : ?>
+									<label style="margin-right:14px"><?php echo esc_html( $label ); ?> <input type="number" min="0" step="100" style="width:100px" name="<?php echo esc_attr( self::OPT ); ?>[<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $s[ $key ] ); ?>"></label>
+								<?php endforeach; ?>
+							</p>
+							<p class="description">Worked out from the form the visitor just sent, in its own currency: the total budget must reach the first amount and also cover every adult and child (e.g. 2 adults and 1 child need 2 × 5,000 + 3,000 = 13,000). Below it, the visitor sees the thank-you page without the booking button and calendar, and a popup form doesn't open the calendar. When a form has no budget or adults, nothing changes.</p>
+							<p style="margin-top:8px">
+								<label>Form fields (budget, adults, children) <input type="text" class="regular-text code" name="<?php echo esc_attr( self::OPT ); ?>[booking_fields]" value="<?php echo esc_attr( $s['booking_fields'] ); ?>"></label>
+							</p>
+							<p style="margin-top:8px">
+								<label>Left out below it <input type="text" class="large-text code" name="<?php echo esc_attr( self::OPT ); ?>[booking_hide]" value="<?php echo esc_attr( $s['booking_hide'] ); ?>"></label>
+							</p>
 						</td>
 					</tr>
 					<tr>

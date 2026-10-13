@@ -43,7 +43,8 @@ Updates then appear under **Plugins** and **Dashboard → Updates** like any oth
    - `[tbl_calendly height="700"]` - the travel designer's calendar
    - `[tbl_travel_designer fallback="our team"]` - their first name, for copy like "Your travel designer, Marta, will…"
    - A thank-you page the site's own code builds (where shortcodes can't go) needs nothing: for a visitor who was just routed, the add-on puts the calendar in the page's `#calendly_widget`, or in a "Book a time with …" section after the element named under **Thank-you page built by the site** (`.ty-next-steps` by default).
-5. **Purge the page cache** (Breeze or similar) after switching a form on or off, so the page loads the add-on's script.
+5. **Booking calendar rule** (on by default): the booking button and calendar are only offered when the form's budget is at least 8,000 and covers 5,000 per adult plus 3,000 per child (amounts in the form's currency, set under **Booking calendar**). It reads the `budget`, `adults` and `children` fields of whatever form was just sent, routed or not; below it, the thank-you page leaves out the elements listed there (by default the site's "Book a time to talk" button and booking section) and a popup form doesn't open the calendar. A form without those fields, or a visit straight to the thank-you page, changes nothing.
+6. **Purge the page cache** (Breeze or similar) after switching a form on or off, so the page loads the add-on's script.
 
 Do this on the staging site first, submit a test lead with an internal email address, and check the leads app's dashboard.
 
@@ -75,7 +76,7 @@ Secrets never come back: the API key only as "set" plus its first characters, we
 | Route | What it does |
 |---|---|
 | `GET /status` | Version, site, Terrific Digital compatibility, settings, last lead sent, forms routed |
-| `POST /settings` | Change settings: any of `base_url`, `api_key`, `timeout`, `fallback_calendly`, `wait_text`, `calendly_background`, `calendly_text`, `calendly_primary` (hex, blank for Calendly's own), `calendly_hide_cookie_banner`, `thanks_after` (CSS selector, blank for off) |
+| `POST /settings` | Change settings: any of `base_url`, `api_key`, `timeout`, `fallback_calendly`, `wait_text`, `calendly_background`, `calendly_text`, `calendly_primary` (hex, blank for Calendly's own), `calendly_hide_cookie_banner`, `thanks_after` (CSS selector, blank for off), `booking_rule`, `booking_min_total`, `booking_min_adult`, `booking_min_child`, `booking_fields`, `booking_hide` |
 | `POST /test` | The settings screen's "Test connection" |
 | `GET /forms` | Every form: routing, its actions (webhook / redirect / dataLayer), the pages it is on, warnings |
 | `GET /forms/{id}` | One form, with its fields |

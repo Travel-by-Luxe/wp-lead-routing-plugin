@@ -47,6 +47,7 @@ class TBL_LR_Frontend {
 			'fallback' => (string) TBL_LR_Settings::get( 'fallback_calendly' ),
 			'theme'       => (object) TBL_LR_Settings::calendly_theme(),
 			'thanksAfter' => (string) TBL_LR_Settings::get( 'thanks_after' ),
+			'booking'     => TBL_LR_Settings::booking_rule(),
 		) );
 	}
 
@@ -58,7 +59,8 @@ class TBL_LR_Frontend {
 	 */
 	public static function enqueue() {
 		if ( is_admin() || ! tbl_lr_forms_available() ) { return; }
-		if ( ! TBL_LR_Forms::enabled_forms() ) { return; }
+		// The booking rule judges every form, routed or not, so it needs the script too.
+		if ( ! TBL_LR_Forms::enabled_forms() && ! TBL_LR_Settings::booking_rule() ) { return; }
 		self::load();
 	}
 

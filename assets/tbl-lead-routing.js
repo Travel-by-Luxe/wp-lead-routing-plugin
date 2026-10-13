@@ -13,7 +13,9 @@
  * On the thank-you page: fills [tbl_calendly] and [tbl_travel_designer] from
  * the `tbl_cal` / `tbl_td` URL parameters, or from this tab's last routing. A
  * thank-you page the site builds itself gets the calendar added (Settings →
- * "Thank-you page built by the site").
+ * "Thank-you page built by the site"). When a form's budget is below the
+ * booking rule (Settings → Booking calendar), the booking button and calendar
+ * are left out instead, on any thank-you page and in the popup.
  */
 (function () {
 	'use strict';
@@ -83,6 +85,64 @@
 			if (r && typeof r === 'object' && Date.now() - (r.at || 0) < MAX_AGE) { return r; }
 		} catch (e) { /* ignore */ }
 		return null;
+	}
+
+	/* ----------------------------------------------------- Booking rule */
+
+	var BOOKING = 'tbl_lr_booking';
+
+	/** The first number in a form value: "12000", "$12,000", "12k", or the low end of "10,000 - 20,000". */
+	function numberIn(value) {
+		if (Array.isArray(value)) { value = value[0]; }
+		if (value === null || value === undefined) { return null; }
+		var match = String(value).replace(/,/g, '').match(/(\d+(?:\.\d+)?)\s*(k)?/i);
+		if (!match) { return null; }
+		var number = parseFloat(match[1]) * (match[2] ? 1000 : 1);
+		return isFinite(number) ? number : null;
+	}
+
+	/**
+	 * Whether the submitted budget earns the booking calendar (Settings → Booking
+	 * calendar): at least the minimum in total, and enough for every adult and
+	 * child. true / false, or null when the answers aren't there to tell.
+	 */
+	function bookingVerdict(fieldsJson) {
+		var rule = cfg.booking;
+		if (!rule || !fieldsJson) { return null; }
+		var fields;
+		try { fields = JSON.parse(fieldsJson); } catch (e) { return null; }
+		if (!fields || typeof fields !== 'object') { return null; }
+		var budget = numberIn(fields[rule.budget]);
+		var adults = numberIn(fields[rule.adults]);
+		if (budget === null || adults === null) { return null; }
+		var children = numberIn(fields[rule.children]) || 0;
+		var needed = Math.max(rule.minTotal, rule.perAdult * adults + rule.perChild * children);
+		return budget >= needed;
+	}
+
+	function rememberBooking(verdict) {
+		try {
+			if (verdict === null) { window.sessionStorage.removeItem(BOOKING); return; }
+			window.sessionStorage.setItem(BOOKING, JSON.stringify({ ok: verdict, at: Date.now() }));
+		} catch (e) { /* private mode: the calendar shows as before */ }
+	}
+
+	function bookingAllowed() {
+		try {
+			var b = JSON.parse(window.sessionStorage.getItem(BOOKING) || 'null');
+			if (b && typeof b.ok === 'boolean' && Date.now() - (b.at || 0) < MAX_AGE) { return b.ok; }
+		} catch (e) { /* ignore */ }
+		return null;
+	}
+
+	/** Below the budget: the booking button and calendar go, before any calendar loads. */
+	function removeBooking() {
+		if (!cfg.booking || !cfg.booking.hide) { return; }
+		var found = [];
+		try { found = document.querySelectorAll(cfg.booking.hide); } catch (e) { return; }
+		Array.prototype.forEach.call(found, function (el) {
+			if (el.parentNode) { el.parentNode.removeChild(el); }
+		});
 	}
 
 	/** Loads Calendly's widget once, on demand. Rejects after 8 s. */
@@ -171,7 +231,7 @@
 	 * Reads the routing from the forms plugin's reply and decides what the
 	 * visitor sees next. Returns the Response the forms plugin should get.
 	 */
-	function handle(res, json) {
+	function handle(res, json, verdict) {
 		var data = json && json.success === true && json.data && typeof json.data === 'object' ? json.data : null;
 		var r    = data && data.tbl_routing && typeof data.tbl_routing === 'object' ? data.tbl_routing : null;
 		if (!res.ok || !r || !isCalendly(r.calendly_url)) {
@@ -189,12 +249,13 @@
 		}
 
 		// Popup mode (or a form without a Redirect action): stay here. The forms
-		// plugin then shows its own inline thank-you, and the calendar opens on top.
+		// plugin then shows its own inline thank-you, and the calendar opens on top,
+		// unless the budget is below the booking rule.
 		data.redirect = '';
 		hideOverlay();
 		var url = themed(r.calendly_url);
 		var prefill = prefillOf(r);
-		setTimeout(function () { openPopup(url, prefill); }, 300);
+		if (verdict !== false) { setTimeout(function () { openPopup(url, prefill); }, 300); }
 
 		var headers = new Headers(res.headers);
 		headers.delete('content-length');
@@ -211,6 +272,7 @@
 			}
 			var id   = param(body, 'post_id') || '';
 			var form = Object.prototype.hasOwnProperty.call(forms, id) ? forms[id] : null;
+			var verdict = bookingVerdict(param(body, 'fields'));
 			if (form) {
 				// The server waits up to 20 s for the leads app; 30 s covers the rest.
 				showOverlay(form.wait_text || cfg.waitText || 'Please wait…', 30000);
@@ -221,7 +283,8 @@
 			return nativeFetch.apply(window, arguments).then(function (res) {
 				return res.clone().json().then(
 					function (json) {
-						try { return handle(res, json); } catch (e) { hideOverlay(); return res; }
+						if (res.ok && json && json.success === true) { rememberBooking(verdict); }
+						try { return handle(res, json, verdict); } catch (e) { hideOverlay(); return res; }
 					},
 					function () { hideOverlay(); return res; }
 				);
@@ -294,16 +357,20 @@
 		var url  = isCalendly(fromUrl) ? fromUrl : (last && isCalendly(last.calendly_url) ? last.calendly_url : '');
 		var td   = qs.get('tbl_td') || (last && last.td_first_name) || '';
 		var prefill = prefillOf(last);
+		var names   = document.querySelectorAll('.tbl-travel-designer');
+		if (td) {
+			Array.prototype.forEach.call(names, function (el) { el.textContent = td; });
+		}
+
+		if (bookingAllowed() === false) {
+			removeBooking();
+			return;
+		}
 
 		if (url) { addCalendarSpot(td); }
 
 		var calendars = document.querySelectorAll('.tbl-calendly');
-		var names     = document.querySelectorAll('.tbl-travel-designer');
-		if (!calendars.length && !names.length) { return; }
-
-		if (td) {
-			Array.prototype.forEach.call(names, function (el) { el.textContent = td; });
-		}
+		if (!calendars.length) { return; }
 
 		Array.prototype.forEach.call(calendars, function (el) {
 			var target = url || el.getAttribute('data-fallback') || cfg.fallback || '';
