@@ -253,7 +253,8 @@
 		var anchor = null;
 		try { anchor = document.querySelector(cfg.thanksAfter); } catch (e) { /* not a valid selector */ }
 		if (!anchor || !anchor.parentNode) { return; }
-		var section = document.createElement('section');
+		// A div, not a section: sites style their sections as page bands.
+		var section = document.createElement('div');
 		section.className = 'tbl-lr-book';
 		var title = document.createElement('h2');
 		title.className = 'tbl-lr-book-title';
@@ -267,7 +268,16 @@
 		section.appendChild(title);
 		section.appendChild(lead);
 		section.appendChild(calendar);
+		// Dress it like the element it follows, so it matches whatever page it lands on.
+		copyLook(anchor.querySelector('h1, h2, h3'), title, ['fontFamily', 'fontWeight', 'color', 'letterSpacing']);
+		copyLook(anchor.querySelector('p, li'), lead, ['fontFamily', 'color']);
 		anchor.parentNode.insertBefore(section, anchor.nextSibling);
+	}
+
+	function copyLook(from, to, props) {
+		if (!from || !window.getComputedStyle) { return; }
+		var look = window.getComputedStyle(from);
+		props.forEach(function (prop) { to.style[prop] = look[prop]; });
 	}
 
 	function thankYou() {

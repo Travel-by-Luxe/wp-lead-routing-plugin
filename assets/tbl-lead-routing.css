@@ -84,7 +84,7 @@
 }
 
 /* The section the add-on adds to a thank-you page built by the site itself.
-   Text takes the page's own colours and fonts. */
+   Its script copies the fonts and colours of the element it follows. */
 .tbl-lr-book {
 	margin: 32px 0 8px;
 	text-align: center;
@@ -103,7 +103,6 @@
 	margin: 0 auto 20px;
 	font-size: 15px;
 	line-height: 1.6;
-	opacity: 0.75;
 }
 
 .tbl-lr-book .tbl-calendly {
