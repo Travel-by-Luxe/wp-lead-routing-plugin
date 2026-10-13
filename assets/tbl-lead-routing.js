@@ -244,10 +244,14 @@
 		if (!cfg.thanksAfter || document.querySelector('.tbl-calendly')) { return; }
 		var own = document.getElementById('calendly_widget');
 		if (own) {
-			// A new element, so the site's own script finds no spot to fill with the team calendar.
-			var spot = document.createElement('div');
-			spot.className = (own.className ? own.className + ' ' : '') + 'tbl-calendly';
-			own.parentNode.replaceChild(spot, own);
+			// A new element, so the site's own script finds no spot to fill with the team
+			// calendar. The site's box only has a min-height, so the calendar gets a holder
+			// with a real height inside it, as the site's own script does.
+			var box = document.createElement('div');
+			box.className = own.className;
+			box.setAttribute('data-tbl-lr-box', '');
+			box.appendChild(styled('div', 'tbl-calendly', 'position:relative;width:100%;min-width:280px;height:700px'));
+			own.parentNode.replaceChild(box, own);
 			return;
 		}
 		var anchor = null;
@@ -317,6 +321,22 @@
 			});
 		});
 	}
+
+	// Calendly reports its content height on every screen change: fit each calendar
+	// to it, so there is no scrollbar inside the calendar and no empty space below it.
+	window.addEventListener('message', function (e) {
+		if (e.origin !== 'https://calendly.com' || !e.data || e.data.event !== 'calendly.page_height') { return; }
+		var height = parseInt((e.data.payload || {}).height, 10);
+		if (!height || height < 100) { return; } // Calendly's first pings are tiny
+		Array.prototype.forEach.call(document.querySelectorAll('.tbl-calendly'), function (el) {
+			var frame = el.querySelector('iframe');
+			if (!frame || frame.contentWindow !== e.source) { return; }
+			el.style.height = height + 'px';
+			if (el.parentNode && el.parentNode.hasAttribute && el.parentNode.hasAttribute('data-tbl-lr-box')) {
+				el.parentNode.style.minHeight = height + 'px';
+			}
+		});
+	});
 
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', thankYou);
