@@ -223,8 +223,10 @@ class TBL_LR_Rest {
 
 	/**
 	 * Switches one of the form's own actions on or off: { type: webhook|redirect|datalayer,
-	 * enabled: bool, index?: n among actions of that type }. Nothing else about the
-	 * action changes, and it is saved through the forms plugin's own sanitizer.
+	 * enabled: bool, index?: n among actions of that type }. A Redirect action can also be
+	 * pointed elsewhere: { type: redirect, page_id: n } or { type: redirect, url: "https://…" }.
+	 * Nothing else about the action changes, and it is saved through the forms plugin's
+	 * own sanitizer.
 	 */
 	public static function toggle_action( WP_REST_Request $request ) {
 		$id = (int) $request['id'];
@@ -234,8 +236,26 @@ class TBL_LR_Rest {
 		$type    = sanitize_key( (string) $request->get_param( 'type' ) );
 		$enabled = $request->get_param( 'enabled' );
 		$index   = (int) $request->get_param( 'index' );
-		if ( ! in_array( $type, array( 'webhook', 'redirect', 'datalayer' ), true ) || ! is_bool( $enabled ) ) {
-			return new WP_Error( 'tbl_lr_bad_action', 'Send { "type": "webhook" | "redirect" | "datalayer", "enabled": true | false }.', array( 'status' => 400 ) );
+		$page_id = $request->get_param( 'page_id' );
+		$url     = $request->get_param( 'url' );
+		$moves   = 'redirect' === $type && ( null !== $page_id || null !== $url );
+		if ( ! in_array( $type, array( 'webhook', 'redirect', 'datalayer' ), true ) || ( null !== $enabled && ! is_bool( $enabled ) ) || ( null === $enabled && ! $moves ) ) {
+			return new WP_Error( 'tbl_lr_bad_action', 'Send { "type": "webhook" | "redirect" | "datalayer", "enabled": true | false }, and for a redirect "page_id" or "url" to change where it goes.', array( 'status' => 400 ) );
+		}
+		if ( null !== $page_id && null !== $url ) {
+			return new WP_Error( 'tbl_lr_bad_action', 'Send "page_id" or "url", not both.', array( 'status' => 400 ) );
+		}
+		if ( null !== $page_id ) {
+			$page_id = (int) $page_id;
+			if ( 'page' !== get_post_type( $page_id ) || 'publish' !== get_post_status( $page_id ) ) {
+				return new WP_Error( 'tbl_lr_not_a_page', sprintf( 'Page %d is not a published page.', $page_id ), array( 'status' => 400 ) );
+			}
+		}
+		if ( null !== $url ) {
+			$url = esc_url_raw( trim( (string) $url ), array( 'https', 'http' ) );
+			if ( '' === $url ) {
+				return new WP_Error( 'tbl_lr_bad_url', 'Send a full http(s) address as "url".', array( 'status' => 400 ) );
+			}
 		}
 		$actions = tf_get_actions( $id );
 		$seen    = 0;
@@ -243,8 +263,14 @@ class TBL_LR_Rest {
 		foreach ( $actions as $i => $action ) {
 			if ( ( isset( $action['type'] ) ? $action['type'] : '' ) !== $type ) { continue; }
 			if ( $seen++ !== $index ) { continue; }
-			$actions[ $i ]['enabled'] = $enabled;
-			$found                    = true;
+			if ( null !== $enabled ) { $actions[ $i ]['enabled'] = $enabled; }
+			if ( $moves ) {
+				$config = isset( $action['config'] ) && is_array( $action['config'] ) ? $action['config'] : array();
+				$actions[ $i ]['config'] = null !== $page_id
+					? array_merge( $config, array( 'mode' => 'page', 'page_id' => $page_id ) )
+					: array_merge( $config, array( 'mode' => 'url', 'url' => $url ) );
+			}
+			$found = true;
 			break;
 		}
 		if ( ! $found ) {
