@@ -84,13 +84,14 @@
 }
 
 /* The section the add-on adds to a thank-you page built by the site itself.
-   Its script copies the fonts and colours of the element it follows. */
-.tbl-lr-book {
-	margin: 32px 0 8px;
+   Its script copies the fonts and colours of the element it follows. The
+   doubled class names outrank a site's own margin resets. */
+.tbl-lr-book.tbl-lr-book {
+	margin: 36px 0 32px;
 	text-align: center;
 }
 
-.tbl-lr-book-title {
+.tbl-lr-book .tbl-lr-book-title {
 	margin: 0 0 8px;
 	font-size: clamp(22px, 4.4vw, 26px);
 	font-weight: 500;
@@ -98,9 +99,9 @@
 	color: inherit;
 }
 
-.tbl-lr-book-lead {
+.tbl-lr-book .tbl-lr-book-lead {
 	max-width: 480px;
-	margin: 0 auto 20px;
+	margin: 0 auto 24px;
 	font-size: 15px;
 	line-height: 1.6;
 }
