@@ -19,6 +19,7 @@ Read this before changing the add-on. The user-facing guide is README.md. This f
 | `includes/class-tbl-lr-client.php` | HTTP to the leads app: rebuilds the webhook payload, sends steps (non-blocking) and the final submission (blocking). |
 | `includes/class-tbl-lr-submit.php` | The submit hooks and the output buffer that adds `data.tbl_routing` to the reply. |
 | `includes/class-tbl-lr-frontend.php` | Enqueues the script, and the `[tbl_calendly]` / `[tbl_travel_designer]` shortcodes. |
+| `includes/class-tbl-lr-rest.php` | The admin REST API (`tbl-lead-routing/v1`): status, settings, forms and their actions, send log (option `tbl_lr_log`), cache, self-update. See README → Admin API. |
 | `assets/tbl-lead-routing.js` | Overlay, popup, thank-you calendar. Plain ES5-style JS, no build step. |
 | `vendor/plugin-update-checker` | YahnisElsts/plugin-update-checker v5, same copy as Terrific Digital. Several copies coexist safely. |
 

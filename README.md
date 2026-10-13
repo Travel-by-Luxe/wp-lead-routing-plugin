@@ -62,6 +62,31 @@ redirect or popup ◀── reply
 - The payload is Terrific Forms' own webhook format. All Travel by Luxe field mapping lives in the leads app, not here.
 - In redirect mode, the calendar link travels on the redirect URL (`tbl_cal`, `tbl_td`), so the thank-you page still works if the browser script cannot run.
 
+## Admin API
+
+For looking after the add-on and its forms without wp-admin, e.g. from a script with an
+[Application Password](https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/)
+(Users → Profile → Application Passwords). Namespace `tbl-lead-routing/v1`; every route needs a user
+who may edit pages (the settings screen's right), and `/update` needs `update_plugins`.
+Secrets never come back: the API key only as "set" plus its first characters, webhooks only by host.
+
+| Route | What it does |
+|---|---|
+| `GET /status` | Version, site, Terrific Digital compatibility, settings, last lead sent, forms routed |
+| `POST /settings` | Change settings: any of `base_url`, `api_key`, `timeout`, `fallback_calendly`, `wait_text` |
+| `POST /test` | The settings screen's "Test connection" |
+| `GET /forms` | Every form: routing, its actions (webhook / redirect / dataLayer), the pages it is on, warnings |
+| `GET /forms/{id}` | One form, with its fields |
+| `POST /forms/{id}/routing` | Change the form's routing: `enabled`, `mode` (`redirect` / `popup`), `fallback_calendly`, `wait_text` |
+| `POST /forms/{id}/actions` | Switch one of the form's actions on or off: `{"type": "webhook", "enabled": false}` (optional `index`) |
+| `GET /log` | The last 50 sends to the leads app, newest first (no names or emails) |
+| `POST /cache/clear` | Clear the Breeze page cache and the object cache |
+| `POST /update` | Install the newest GitHub release, like "Update now" |
+
+```bash
+curl -u "user:app password" https://example.com/wp-json/tbl-lead-routing/v1/forms
+```
+
 ## Releasing
 
 1. Bump the version in **both** places in `tbl-lead-routing.php`: the `Version:` header and `TBL_LR_VERSION`.

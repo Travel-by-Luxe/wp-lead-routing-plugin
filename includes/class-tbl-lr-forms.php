@@ -106,7 +106,7 @@ class TBL_LR_Forms {
 	}
 
 	/** The URL of this form's enabled Webhook action, or ''. */
-	protected static function active_webhook( $post_id ) {
+	public static function active_webhook( $post_id ) {
 		foreach ( tf_get_actions( $post_id ) as $action ) {
 			if ( ! empty( $action['enabled'] ) && isset( $action['type'] ) && 'webhook' === $action['type'] && function_exists( 'tf_resolve_webhook_url' ) ) {
 				return (string) tf_resolve_webhook_url( $action );
@@ -116,7 +116,7 @@ class TBL_LR_Forms {
 	}
 
 	/** Whether this form has an enabled Redirect action with a destination. */
-	protected static function has_redirect( $post_id ) {
+	public static function has_redirect( $post_id ) {
 		foreach ( tf_get_actions( $post_id ) as $action ) {
 			if ( ! empty( $action['enabled'] ) && isset( $action['type'] ) && 'redirect' === $action['type'] ) {
 				return function_exists( 'tf_resolve_redirect_url' ) ? '' !== (string) tf_resolve_redirect_url( $action ) : true;
@@ -131,11 +131,16 @@ class TBL_LR_Forms {
 		if ( ! current_user_can( 'edit_post', $post_id ) ) { return; }
 
 		$in = isset( $_POST['tbl_lr'] ) && is_array( $_POST['tbl_lr'] ) ? wp_unslash( $_POST['tbl_lr'] ) : array();
-		update_post_meta( $post_id, self::META, array(
+		update_post_meta( $post_id, self::META, self::sanitize_config( $in ) );
+	}
+
+	/** A form's settings as they are stored (the edit screen and the REST API both save through this). */
+	public static function sanitize_config( $in ) {
+		return array(
 			'enabled'           => ! empty( $in['enabled'] ),
 			'mode'              => ( isset( $in['mode'] ) && 'popup' === $in['mode'] ) ? 'popup' : 'redirect',
 			'fallback_calendly' => TBL_LR_Settings::calendly_url( isset( $in['fallback_calendly'] ) ? $in['fallback_calendly'] : '' ),
 			'wait_text'         => isset( $in['wait_text'] ) ? sanitize_text_field( $in['wait_text'] ) : '',
-		) );
+		);
 	}
 }
