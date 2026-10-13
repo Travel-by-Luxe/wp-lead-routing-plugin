@@ -84,6 +84,8 @@ Secrets never come back: the API key only as "set" plus its first characters, we
 | `POST /pages/{id}/duplicate` | Copy a page like Duplicate Page does (content, template, custom fields, terms), swapping its forms: `title`, `slug`, `status`, `forms: {"77": 123}` |
 | `GET /snippets?page={id}` | Terrific Digital snippets, where each applies, and whether it applies to that page (code not returned) |
 | `POST /snippets/{id}/pages` | Add or remove pages on a snippet limited to specific pages: `add`, `remove` |
+| `POST /snippets` | Create a Terrific Digital snippet: `title`, `code`, optional `type` (`html` / `js`), `location`, `condition` (`all` / `specific` / `url_contains` / `url_not_contains`), `pages`, `url_match`, `enabled`. Defaults: HTML, before `</body>`, specific pages, off. Needs the right to post unfiltered HTML. |
+| `POST /snippets/{id}` | Change any of those on a snippet, e.g. `{"enabled": false}` to turn it off |
 | `GET /log` | The last 50 sends to the leads app, newest first (no names or emails) |
 | `POST /cache/clear` | Clear the Breeze page cache and the object cache |
 | `POST /update` | Install the newest GitHub release, like "Update now" |

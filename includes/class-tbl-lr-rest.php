@@ -9,8 +9,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * install the newest release.
  *
  * Namespace tbl-lead-routing/v1. Every route needs a logged-in user who may
- * edit pages (the same right as the settings screen); updating the plugin
- * needs update_plugins. Secrets are never returned: the API key shows only
+ * edit pages (the same right as the settings screen); writing a snippet also
+ * needs unfiltered_html, and updating the plugin needs update_plugins. Secrets are never returned: the API key shows only
  * whether one is set, and webhook addresses only their host.
  */
 class TBL_LR_Rest {
@@ -69,9 +69,21 @@ class TBL_LR_Rest {
 			'permission_callback' => array( __CLASS__, 'can_edit_form' ),
 		) );
 		register_rest_route( self::NS, '/snippets', array(
-			'methods'             => 'GET',
-			'callback'            => array( __CLASS__, 'snippets' ),
-			'permission_callback' => $editor,
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'snippets' ),
+				'permission_callback' => $editor,
+			),
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( __CLASS__, 'create_snippet' ),
+				'permission_callback' => array( __CLASS__, 'can_write_code' ),
+			),
+		) );
+		register_rest_route( self::NS, '/snippets/(?P<id>\d+)', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'update_snippet' ),
+			'permission_callback' => array( __CLASS__, 'can_write_code' ),
 		) );
 		register_rest_route( self::NS, '/snippets/(?P<id>\d+)/pages', array(
 			'methods'             => 'POST',
@@ -97,6 +109,11 @@ class TBL_LR_Rest {
 
 	public static function can_edit() {
 		return current_user_can( TBL_LR_Settings::CAP );
+	}
+
+	/** A snippet is raw HTML or JavaScript on the site's pages: only for users WordPress already lets post any HTML. */
+	public static function can_write_code() {
+		return current_user_can( TBL_LR_Settings::CAP ) && current_user_can( 'unfiltered_html' );
 	}
 
 	public static function can_edit_form( WP_REST_Request $request ) {
@@ -409,34 +426,110 @@ class TBL_LR_Rest {
 			return new WP_Error( 'tbl_lr_no_snippets', 'Terrific Digital snippets are not available.', array( 'status' => 409 ) );
 		}
 		$page = (int) $request->get_param( 'page' );
-		$url  = $page ? (string) get_permalink( $page ) : '';
 		$ids  = get_posts( array( 'post_type' => TD_Snippets::CPT, 'post_status' => 'any', 'posts_per_page' => 200, 'fields' => 'ids', 'no_found_rows' => true ) );
-		$out  = array();
-		foreach ( $ids as $id ) {
-			$row  = (array) TD_Snippet_Store::get_row( $id );
-			$cond = isset( $row['condition_type'] ) ? (string) $row['condition_type'] : 'all';
-			$item = array(
-				'id'          => (int) $id,
-				'title'       => get_the_title( $id ),
-				'status'      => get_post_status( $id ),
-				'enabled'     => ! empty( $row['enabled'] ),
-				'type'        => isset( $row['code_type'] ) ? (string) $row['code_type'] : '',
-				'location'    => isset( $row['location'] ) ? (string) $row['location'] : '',
-				'condition'   => $cond,
-				'pages'       => TD_Snippet_Store::get_pages( $id ),
-				'url_match'   => isset( $row['url_match'] ) ? (string) $row['url_match'] : '',
-				'code_length' => isset( $row['code'] ) ? strlen( (string) $row['code'] ) : 0,
-			);
-			if ( $page ) {
-				$needle                  = $item['url_match'];
-				$item['applies_to_page'] = 'all' === $cond
-					|| ( 'specific' === $cond && in_array( $page, $item['pages'], true ) )
-					|| ( 'url_contains' === $cond && '' !== $needle && false !== stripos( $url, $needle ) )
-					|| ( 'url_not_contains' === $cond && ( '' === $needle || false === stripos( $url, $needle ) ) );
-			}
-			$out[] = $item;
+		return array_map( function ( $id ) use ( $page ) { return self::describe_snippet( $id, $page ); }, $ids );
+	}
+
+	/** One snippet as the API shows it; with $page, also whether it runs on that page. */
+	protected static function describe_snippet( $id, $page = 0 ) {
+		$row  = (array) TD_Snippet_Store::get_row( $id );
+		$cond = isset( $row['condition_type'] ) ? (string) $row['condition_type'] : 'all';
+		$item = array(
+			'id'          => (int) $id,
+			'title'       => get_the_title( $id ),
+			'status'      => get_post_status( $id ),
+			'enabled'     => ! empty( $row['enabled'] ),
+			'type'        => isset( $row['code_type'] ) ? (string) $row['code_type'] : '',
+			'location'    => isset( $row['location'] ) ? (string) $row['location'] : '',
+			'condition'   => $cond,
+			'pages'       => TD_Snippet_Store::get_pages( $id ),
+			'url_match'   => isset( $row['url_match'] ) ? (string) $row['url_match'] : '',
+			'code_length' => isset( $row['code'] ) ? strlen( (string) $row['code'] ) : 0,
+		);
+		if ( $page ) {
+			$url                     = (string) get_permalink( $page );
+			$needle                  = $item['url_match'];
+			$item['applies_to_page'] = 'all' === $cond
+				|| ( 'specific' === $cond && in_array( $page, $item['pages'], true ) )
+				|| ( 'url_contains' === $cond && '' !== $needle && false !== stripos( $url, $needle ) )
+				|| ( 'url_not_contains' === $cond && ( '' === $needle || false === stripos( $url, $needle ) ) );
 		}
-		return $out;
+		return $item;
+	}
+
+	/**
+	 * A new Terrific Digital snippet, stored through its own data functions:
+	 * { title, code, type?: html|js, location?, condition?: all|specific|url_contains|url_not_contains,
+	 *   pages?: [ids], url_match?, enabled? }. Defaults: html, before_body_close, specific, off.
+	 */
+	public static function create_snippet( WP_REST_Request $request ) {
+		if ( ! class_exists( 'TD_Snippets' ) || ! class_exists( 'TD_Snippet_Store' ) ) {
+			return new WP_Error( 'tbl_lr_no_snippets', 'Terrific Digital snippets are not available.', array( 'status' => 409 ) );
+		}
+		$in    = (array) $request->get_json_params();
+		$title = isset( $in['title'] ) ? sanitize_text_field( (string) $in['title'] ) : '';
+		if ( '' === $title || ! isset( $in['code'] ) || '' === trim( (string) $in['code'] ) ) {
+			return new WP_Error( 'tbl_lr_bad_snippet', 'Send at least a "title" and the "code".', array( 'status' => 400 ) );
+		}
+		$fields = self::snippet_fields( array_merge( array( 'type' => 'html', 'location' => 'before_body_close', 'condition' => 'specific', 'pages' => array(), 'url_match' => '', 'enabled' => false ), $in ) );
+		if ( is_wp_error( $fields ) ) { return $fields; }
+
+		$id = wp_insert_post( array( 'post_type' => TD_Snippets::CPT, 'post_title' => $title, 'post_status' => 'publish' ), true );
+		if ( is_wp_error( $id ) ) { return $id; }
+		TD_Snippet_Store::save( $id, $fields );
+		return self::describe_snippet( $id );
+	}
+
+	/** Changes a snippet: any of title, code, type, location, condition, pages, url_match, enabled. */
+	public static function update_snippet( WP_REST_Request $request ) {
+		$id = (int) $request['id'];
+		if ( ! class_exists( 'TD_Snippets' ) || TD_Snippets::CPT !== get_post_type( $id ) ) {
+			return new WP_Error( 'tbl_lr_not_a_snippet', 'No snippet with that id.', array( 'status' => 404 ) );
+		}
+		$in     = (array) $request->get_json_params();
+		$fields = self::snippet_fields( $in );
+		if ( is_wp_error( $fields ) ) { return $fields; }
+		if ( isset( $in['title'] ) && '' !== trim( (string) $in['title'] ) ) {
+			wp_update_post( array( 'ID' => $id, 'post_title' => sanitize_text_field( (string) $in['title'] ) ) );
+		}
+		if ( $fields ) { TD_Snippet_Store::save( $id, $fields ); }
+		return self::describe_snippet( $id );
+	}
+
+	/** The store's columns for the keys sent, checked against the forms plugin's own lists. */
+	protected static function snippet_fields( $in ) {
+		$fields = array();
+		if ( isset( $in['code'] ) ) { $fields['code'] = (string) $in['code']; }
+		if ( isset( $in['type'] ) ) {
+			if ( ! isset( TD_Snippets::TYPES[ $in['type'] ] ) ) {
+				return new WP_Error( 'tbl_lr_bad_snippet', 'type is one of: ' . implode( ', ', array_keys( TD_Snippets::TYPES ) ) . '.', array( 'status' => 400 ) );
+			}
+			$fields['code_type'] = $in['type'];
+		}
+		if ( isset( $in['location'] ) ) {
+			if ( ! isset( TD_Snippets::LOCATIONS[ $in['location'] ] ) ) {
+				return new WP_Error( 'tbl_lr_bad_snippet', 'location is one of: ' . implode( ', ', array_keys( TD_Snippets::LOCATIONS ) ) . '.', array( 'status' => 400 ) );
+			}
+			$fields['location'] = $in['location'];
+		}
+		if ( isset( $in['condition'] ) ) {
+			if ( ! isset( TD_Snippets::CONDITIONS[ $in['condition'] ] ) ) {
+				return new WP_Error( 'tbl_lr_bad_snippet', 'condition is one of: ' . implode( ', ', array_keys( TD_Snippets::CONDITIONS ) ) . '.', array( 'status' => 400 ) );
+			}
+			$fields['condition_type'] = $in['condition'];
+		}
+		if ( isset( $in['pages'] ) ) {
+			$pages = array_values( array_unique( array_map( 'intval', (array) $in['pages'] ) ) );
+			foreach ( $pages as $page ) {
+				if ( 'page' !== get_post_type( $page ) ) {
+					return new WP_Error( 'tbl_lr_not_a_page', sprintf( 'Page %d does not exist.', $page ), array( 'status' => 400 ) );
+				}
+			}
+			$fields['pages'] = wp_json_encode( $pages );
+		}
+		if ( isset( $in['url_match'] ) ) { $fields['url_match'] = sanitize_text_field( (string) $in['url_match'] ); }
+		if ( isset( $in['enabled'] ) ) { $fields['enabled'] = (bool) $in['enabled']; }
+		return $fields;
 	}
 
 	/** Adds or removes pages on a snippet shown on specific pages only: { add?: [ids], remove?: [ids] }. */
