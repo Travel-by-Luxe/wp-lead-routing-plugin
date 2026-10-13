@@ -79,6 +79,10 @@ Secrets never come back: the API key only as "set" plus its first characters, we
 | `GET /forms/{id}` | One form, with its fields |
 | `POST /forms/{id}/routing` | Change the form's routing: `enabled`, `mode` (`redirect` / `popup`), `fallback_calendly`, `wait_text` |
 | `POST /forms/{id}/actions` | Switch one of the form's actions on or off: `{"type": "webhook", "enabled": false}` (optional `index`) |
+| `POST /forms/{id}/duplicate` | Copy a form the way the forms plugin's export/import does (new form ID), routing settings included: `title`, `status` |
+| `POST /pages/{id}/duplicate` | Copy a page like Duplicate Page does (content, template, custom fields, terms), swapping its forms: `title`, `slug`, `status`, `forms: {"77": 123}` |
+| `GET /snippets?page={id}` | Terrific Digital snippets, where each applies, and whether it applies to that page (code not returned) |
+| `POST /snippets/{id}/pages` | Add or remove pages on a snippet limited to specific pages: `add`, `remove` |
 | `GET /log` | The last 50 sends to the leads app, newest first (no names or emails) |
 | `POST /cache/clear` | Clear the Breeze page cache and the object cache |
 | `POST /update` | Install the newest GitHub release, like "Update now" |

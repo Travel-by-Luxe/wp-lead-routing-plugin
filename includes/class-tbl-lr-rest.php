@@ -58,6 +58,26 @@ class TBL_LR_Rest {
 			'callback'            => array( __CLASS__, 'toggle_action' ),
 			'permission_callback' => array( __CLASS__, 'can_edit_form' ),
 		) );
+		register_rest_route( self::NS, '/forms/(?P<id>\d+)/duplicate', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'duplicate_form' ),
+			'permission_callback' => array( __CLASS__, 'can_edit_form' ),
+		) );
+		register_rest_route( self::NS, '/pages/(?P<id>\d+)/duplicate', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'duplicate_page' ),
+			'permission_callback' => array( __CLASS__, 'can_edit_form' ),
+		) );
+		register_rest_route( self::NS, '/snippets', array(
+			'methods'             => 'GET',
+			'callback'            => array( __CLASS__, 'snippets' ),
+			'permission_callback' => $editor,
+		) );
+		register_rest_route( self::NS, '/snippets/(?P<id>\d+)/pages', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'snippet_pages' ),
+			'permission_callback' => array( __CLASS__, 'can_edit_form' ),
+		) );
 		register_rest_route( self::NS, '/log', array(
 			'methods'             => 'GET',
 			'callback'            => array( __CLASS__, 'log' ),
@@ -227,6 +247,185 @@ class TBL_LR_Rest {
 		$clean = class_exists( 'TF_Builder' ) && method_exists( 'TF_Builder', 'sanitize_actions' ) ? TF_Builder::sanitize_actions( $actions ) : $actions;
 		TF_Forms::save( $id, array( 'actions' => wp_json_encode( array_values( $clean ) ) ) );
 		return self::describe_form( $id, self::form_usage() );
+	}
+
+	/**
+	 * A copy of a form, made the way the forms plugin's own export/import does it:
+	 * the same definition, texts, CSS and actions, saved through its own data
+	 * functions, under a new form ID. The routing settings are copied too.
+	 * { title?, status?: publish|draft|private }
+	 */
+	public static function duplicate_form( WP_REST_Request $request ) {
+		$id = (int) $request['id'];
+		if ( ! tbl_lr_forms_available() || TF_CPT !== get_post_type( $id ) || ! class_exists( 'TF_Forms' ) ) {
+			return new WP_Error( 'tbl_lr_not_a_form', 'No Terrific form with that id.', array( 'status' => 404 ) );
+		}
+		$in     = (array) $request->get_json_params();
+		$source = get_post( $id );
+		$title  = isset( $in['title'] ) && '' !== trim( (string) $in['title'] ) ? sanitize_text_field( (string) $in['title'] ) : $source->post_title . ' (copy)';
+		$status = isset( $in['status'] ) ? (string) $in['status'] : $source->post_status;
+		$status = in_array( $status, array( 'publish', 'draft', 'private' ), true ) ? $status : 'draft';
+
+		$new = wp_insert_post( array( 'post_type' => TF_CPT, 'post_title' => $title, 'post_status' => $status ), true );
+		if ( is_wp_error( $new ) ) { return $new; }
+
+		$def        = tf_get_form( $id );
+		$definition = array(
+			'type'  => isset( $def['type'] ) ? $def['type'] : 'regular',
+			'steps' => isset( $def['steps'] ) ? $def['steps'] : array(),
+		);
+		if ( isset( $def['submission_step'] ) ) { $definition['submission_step'] = (int) $def['submission_step']; }
+		if ( class_exists( 'TF_Builder' ) && method_exists( 'TF_Builder', 'sanitize_def' ) ) { $definition = TF_Builder::sanitize_def( $definition ); }
+		$actions = tf_get_actions( $id );
+		if ( class_exists( 'TF_Builder' ) && method_exists( 'TF_Builder', 'sanitize_actions' ) ) { $actions = TF_Builder::sanitize_actions( $actions ); }
+
+		TF_Forms::save( $new, array(
+			'definition'      => wp_json_encode( $definition ),
+			'intent'          => function_exists( 'tf_get_intent' ) ? tf_get_intent( $id ) : TF_Forms::get_intent( $id ),
+			'submit_text'     => TF_Forms::get_submit_text( $id ),
+			'success_message' => TF_Forms::get_success_message( $id ),
+			'wrapper_class'   => TF_Forms::get_wrapper_class( $id ),
+			'custom_css'      => TF_Forms::get_custom_css( $id ),
+			'actions'         => wp_json_encode( array_values( $actions ) ),
+		) );
+		if ( function_exists( 'tf_ensure_form_id' ) ) { tf_ensure_form_id( $new ); }
+		$routing = get_post_meta( $id, TBL_LR_Forms::META, true );
+		if ( is_array( $routing ) ) { update_post_meta( $new, TBL_LR_Forms::META, $routing ); }
+
+		return array_merge( array( 'copied_from' => $id ), self::describe_form( $new, self::form_usage() ) );
+	}
+
+	/**
+	 * A copy of a page, like the Duplicate Page plugin makes it (content, template,
+	 * every custom field, terms), with its forms swapped for others:
+	 * { title?, slug?, status?: publish|draft|private, forms?: { "77": 123 } }.
+	 */
+	public static function duplicate_page( WP_REST_Request $request ) {
+		$id     = (int) $request['id'];
+		$source = get_post( $id );
+		if ( ! $source || 'page' !== $source->post_type ) {
+			return new WP_Error( 'tbl_lr_not_a_page', 'No page with that id.', array( 'status' => 404 ) );
+		}
+		$in     = (array) $request->get_json_params();
+		$status = isset( $in['status'] ) ? (string) $in['status'] : 'draft';
+		$status = in_array( $status, array( 'publish', 'draft', 'private' ), true ) ? $status : 'draft';
+		if ( 'publish' === $status && ! current_user_can( 'publish_pages' ) ) {
+			return new WP_Error( 'tbl_lr_cannot_publish', 'You may not publish pages.', array( 'status' => 403 ) );
+		}
+		$map = array();
+		foreach ( isset( $in['forms'] ) && is_array( $in['forms'] ) ? $in['forms'] : array() as $from => $to ) {
+			if ( ! tbl_lr_forms_available() || TF_CPT !== get_post_type( (int) $to ) ) {
+				return new WP_Error( 'tbl_lr_not_a_form', sprintf( 'Form %d does not exist.', (int) $to ), array( 'status' => 400 ) );
+			}
+			$map[ (int) $from ] = (int) $to;
+		}
+		$swap = function ( $text ) use ( $map ) {
+			foreach ( $map as $from => $to ) {
+				$text = preg_replace( '/(\[terrific_form[^\]]*\bid=\\\\?["\']?)' . $from . '\b/', '${1}' . $to, $text );
+				$text = preg_replace( '/("formId":\s*"?)' . $from . '\b/', '${1}' . $to, $text );
+			}
+			return $text;
+		};
+
+		$new = wp_insert_post( wp_slash( array(
+			'post_type'      => 'page',
+			'post_title'     => isset( $in['title'] ) && '' !== trim( (string) $in['title'] ) ? sanitize_text_field( (string) $in['title'] ) : $source->post_title . ' (copy)',
+			'post_name'      => isset( $in['slug'] ) ? sanitize_title( (string) $in['slug'] ) : '',
+			'post_status'    => $status,
+			'post_content'   => $swap( $source->post_content ),
+			'post_excerpt'   => $source->post_excerpt,
+			'post_parent'    => $source->post_parent,
+			'menu_order'     => $source->menu_order,
+			'comment_status' => $source->comment_status,
+			'ping_status'    => $source->ping_status,
+			'post_author'    => get_current_user_id(),
+		) ), true );
+		if ( is_wp_error( $new ) ) { return $new; }
+
+		$skip = array( '_edit_lock', '_edit_last', '_wp_old_slug', '_wp_old_date' );
+		foreach ( get_post_meta( $id ) as $key => $values ) {
+			if ( in_array( $key, $skip, true ) ) { continue; }
+			foreach ( $values as $value ) {
+				$value = maybe_unserialize( $value );
+				if ( is_string( $value ) ) { $value = $swap( $value ); }
+				add_post_meta( $new, $key, wp_slash( $value ) );
+			}
+		}
+		foreach ( get_object_taxonomies( 'page' ) as $taxonomy ) {
+			$terms = wp_get_object_terms( $id, $taxonomy, array( 'fields' => 'ids' ) );
+			if ( ! is_wp_error( $terms ) && $terms ) { wp_set_object_terms( $new, $terms, $taxonomy ); }
+		}
+
+		$page = get_post( $new );
+		return array(
+			'id'          => (int) $new,
+			'copied_from' => $id,
+			'title'       => $page->post_title,
+			'slug'        => $page->post_name,
+			'status'      => $page->post_status,
+			'url'         => get_permalink( $new ),
+			'forms'       => $map,
+			'edit_url'    => get_edit_post_link( $new, 'raw' ),
+		);
+	}
+
+	/* ------------------------------------------------------------- Snippets (Terrific Digital) */
+
+	/** Every snippet and where it applies; ?page=ID adds whether it applies to that page. Code is not returned. */
+	public static function snippets( WP_REST_Request $request ) {
+		if ( ! class_exists( 'TD_Snippets' ) || ! class_exists( 'TD_Snippet_Store' ) ) {
+			return new WP_Error( 'tbl_lr_no_snippets', 'Terrific Digital snippets are not available.', array( 'status' => 409 ) );
+		}
+		$page = (int) $request->get_param( 'page' );
+		$url  = $page ? (string) get_permalink( $page ) : '';
+		$ids  = get_posts( array( 'post_type' => TD_Snippets::CPT, 'post_status' => 'any', 'posts_per_page' => 200, 'fields' => 'ids', 'no_found_rows' => true ) );
+		$out  = array();
+		foreach ( $ids as $id ) {
+			$row  = (array) TD_Snippet_Store::get_row( $id );
+			$cond = isset( $row['condition_type'] ) ? (string) $row['condition_type'] : 'all';
+			$item = array(
+				'id'          => (int) $id,
+				'title'       => get_the_title( $id ),
+				'status'      => get_post_status( $id ),
+				'enabled'     => ! empty( $row['enabled'] ),
+				'type'        => isset( $row['code_type'] ) ? (string) $row['code_type'] : '',
+				'location'    => isset( $row['location'] ) ? (string) $row['location'] : '',
+				'condition'   => $cond,
+				'pages'       => TD_Snippet_Store::get_pages( $id ),
+				'url_match'   => isset( $row['url_match'] ) ? (string) $row['url_match'] : '',
+				'code_length' => isset( $row['code'] ) ? strlen( (string) $row['code'] ) : 0,
+			);
+			if ( $page ) {
+				$needle                  = $item['url_match'];
+				$item['applies_to_page'] = 'all' === $cond
+					|| ( 'specific' === $cond && in_array( $page, $item['pages'], true ) )
+					|| ( 'url_contains' === $cond && '' !== $needle && false !== stripos( $url, $needle ) )
+					|| ( 'url_not_contains' === $cond && ( '' === $needle || false === stripos( $url, $needle ) ) );
+			}
+			$out[] = $item;
+		}
+		return $out;
+	}
+
+	/** Adds or removes pages on a snippet shown on specific pages only: { add?: [ids], remove?: [ids] }. */
+	public static function snippet_pages( WP_REST_Request $request ) {
+		$id = (int) $request['id'];
+		if ( ! class_exists( 'TD_Snippets' ) || TD_Snippets::CPT !== get_post_type( $id ) ) {
+			return new WP_Error( 'tbl_lr_not_a_snippet', 'No snippet with that id.', array( 'status' => 404 ) );
+		}
+		if ( 'specific' !== (string) TD_Snippet_Store::get_field( $id, 'condition_type', 'all' ) ) {
+			return new WP_Error( 'tbl_lr_not_specific', 'This snippet is not limited to specific pages, so it has no page list.', array( 'status' => 409 ) );
+		}
+		$add    = array_map( 'intval', (array) $request->get_param( 'add' ) );
+		$remove = array_map( 'intval', (array) $request->get_param( 'remove' ) );
+		foreach ( $add as $page ) {
+			if ( 'page' !== get_post_type( $page ) ) {
+				return new WP_Error( 'tbl_lr_not_a_page', sprintf( 'Page %d does not exist.', $page ), array( 'status' => 400 ) );
+			}
+		}
+		$pages = array_values( array_diff( array_unique( array_merge( TD_Snippet_Store::get_pages( $id ), $add ) ), $remove ) );
+		TD_Snippet_Store::save( $id, array( 'pages' => wp_json_encode( $pages ) ) );
+		return array( 'id' => $id, 'title' => get_the_title( $id ), 'pages' => TD_Snippet_Store::get_pages( $id ) );
 	}
 
 	/** One form, as the API shows it: routing, actions (webhooks by host only) and the pages it is on. */
