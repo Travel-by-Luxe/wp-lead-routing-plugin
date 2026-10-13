@@ -253,18 +253,14 @@
 		var anchor = null;
 		try { anchor = document.querySelector(cfg.thanksAfter); } catch (e) { /* not a valid selector */ }
 		if (!anchor || !anchor.parentNode) { return; }
-		// A div, not a section: sites style their sections as page bands.
-		var section = document.createElement('div');
-		section.className = 'tbl-lr-book';
-		var title = document.createElement('h2');
-		title.className = 'tbl-lr-book-title';
+		// A div, not a section: sites style their sections as page bands. Styled
+		// inline, since a page the site builds may not load this add-on's CSS.
+		var section = styled('div', 'tbl-lr-book', 'margin:36px 0 32px;text-align:center');
+		var title = styled('h2', 'tbl-lr-book-title', 'margin:0 0 8px;font-size:clamp(22px,4.4vw,26px);font-weight:500;line-height:1.3');
 		title.textContent = 'Want to skip ahead? Book a time with ' + (td || 'your Travel Designer') + '.';
-		var lead = document.createElement('p');
-		lead.className = 'tbl-lr-book-lead';
+		var lead = styled('p', 'tbl-lr-book-lead', 'max-width:480px;margin:0 auto 24px;font-size:15px;line-height:1.6');
 		lead.textContent = "If you'd like to talk about your trip sooner, pick a time below.";
-		var calendar = document.createElement('div');
-		calendar.className = 'tbl-calendly';
-		calendar.style.height = '700px';
+		var calendar = styled('div', 'tbl-calendly', 'position:relative;width:100%;min-width:280px;height:700px;overflow:hidden;border-radius:8px;background:#fff');
 		section.appendChild(title);
 		section.appendChild(lead);
 		section.appendChild(calendar);
@@ -272,6 +268,13 @@
 		copyLook(anchor.querySelector('h1, h2, h3'), title, ['fontFamily', 'fontWeight', 'color', 'letterSpacing']);
 		copyLook(anchor.querySelector('p, li'), lead, ['fontFamily', 'color']);
 		anchor.parentNode.insertBefore(section, anchor.nextSibling);
+	}
+
+	function styled(tag, className, css) {
+		var el = document.createElement(tag);
+		el.className = className;
+		el.style.cssText = css;
+		return el;
 	}
 
 	function copyLook(from, to, props) {
