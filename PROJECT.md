@@ -50,6 +50,8 @@ If any of these change, the add-on degrades to "the form behaves as before": the
 - `data.redirect` set → `tbl_cal` (and `tbl_td`) appended;
 - `data.tbl_routing` added: `mode`, `calendly_url`, `fallback`, `td_name`, `td_first_name`, `prefill {name, email}`, `lead_id`.
 
+A **Just send it** form (`mode: send`) is sent the same way but `on_submission()` returns before the buffer starts, and the form is left out of `TBL_LR.forms`, so the browser does nothing for it.
+
 Only `calendly.com` https links are ever passed to visitors (`TBL_LR_Settings::calendly_url()` on the server, `isCalendly()` in the browser).
 
 ## Testing locally
@@ -58,6 +60,6 @@ There is no automated test suite. Test end to end:
 
 1. A local WordPress (the SQLite integration plugin and `php -S` are enough) with Terrific Digital and this add-on.
 2. The leads app running locally with an API key. Leave Zendesk unconfigured locally, or use internal test emails only. **Never create test tickets in production Zendesk.**
-3. A routed form in each mode, plus a multi-step form. Check the overlay, the popup with prefill, the thank-you calendar, and the fallback when the leads app is stopped.
+3. A routed form in each mode (redirect, popup, send), plus a multi-step form. Check the overlay, the popup with prefill, the thank-you calendar, that a send-only form shows no overlay, and the fallback when the leads app is stopped.
 
 Run `php -l` on every PHP file before tagging. The release workflow does too.

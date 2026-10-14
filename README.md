@@ -11,6 +11,15 @@ Terrific Digital is not changed in any way. This add-on only listens to the hook
 3. What happens next is chosen **per form**:
    - **Redirect** - the form's own Redirect action runs as usual. The thank-you page shows the travel designer's calendar wherever you put `[tbl_calendly]`.
    - **Popup** - the visitor stays on the page. The form shows its inline thank-you message and the travel designer's Calendly opens in a popup, with name and email already filled in.
+   - **Just send it** - no "Please wait" and no calendar: the lead goes to the leads app and the form behaves exactly as it does without the add-on (its own message or redirect). For forms that are not sales leads, such as the partner form.
+
+On lp.travelbyluxe.com (since 14 Oct 2026):
+
+| Form | Mode |
+|---|---|
+| Italy - Luxury Travel Inquiry - 3 Step (77), `/luxury-travel-v3/` | Redirect to `/thank-you/`, calendar in the site's `#calendly_widget` |
+| Trip Inquiry - 6 Step (Home) (105), `/` | Popup (its Redirect action stays on only as a safety net) |
+| Partner Application - Single Step (111), `/travel-agents/` | Just send it (the leads app gives partner requests to Amy) |
 
 If the leads app is slow or down, the visitor gets the **fallback Calendly link** after the "Longest wait" setting (8 seconds by default). Terrific Forms still saves the submission either way, and the leads app retries any ticket it could not create.
 
@@ -36,7 +45,7 @@ Updates then appear under **Plugins** and **Dashboard → Updates** like any oth
    - Click **Test connection**.
 2. **On each form** (Terrific Forms → edit the form), use the **TBL Lead Routing** box:
    - Tick **Route leads from this form**.
-   - Choose **Redirect** or **Popup**.
+   - Choose **Redirect**, **Popup** or **Just send it**.
    - Optionally set a form-specific fallback link and "Please wait" text.
 3. **Turn off the form's Webhook action** if it still sends to Make. Otherwise the lead gets a second ticket. The box shows a red warning while a Webhook action is still on.
 4. **Redirect forms:** put these on the thank-you page:
