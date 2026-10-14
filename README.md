@@ -64,6 +64,7 @@ redirect or popup ◀── reply
 - Each step of a multi-step form is also forwarded (without waiting), so abandoned forms still reach the leads app.
 - The payload is Terrific Forms' own webhook format. All Travel by Luxe field mapping lives in the leads app, not here.
 - In redirect mode, the calendar link travels on the redirect URL (`tbl_cal`, `tbl_td`), so the thank-you page still works if the browser script cannot run.
+- **Just send it** (`send`) sends the lead the same way but leaves the reply alone: no "Please wait", no calendar, the form's own message or redirect. For forms that are not sales leads, such as the partner form (the leads app leaves partner requests unassigned).
 
 ## Admin API
 
@@ -80,7 +81,7 @@ Secrets never come back: the API key only as "set" plus its first characters, we
 | `POST /test` | The settings screen's "Test connection" |
 | `GET /forms` | Every form: routing, its actions (webhook / redirect / dataLayer), the pages it is on, warnings |
 | `GET /forms/{id}` | One form, with its fields |
-| `POST /forms/{id}/routing` | Change the form's routing: `enabled`, `mode` (`redirect` / `popup`), `fallback_calendly`, `wait_text` |
+| `POST /forms/{id}/routing` | Change the form's routing: `enabled`, `mode` (`redirect` / `popup` / `send`), `fallback_calendly`, `wait_text` |
 | `POST /forms/{id}/actions` | Switch one of the form's actions on or off: `{"type": "webhook", "enabled": false}` (optional `index`). Point the Redirect action elsewhere: `{"type": "redirect", "page_id": 182}` or `{"type": "redirect", "url": "https://…"}` |
 | `POST /forms/{id}/duplicate` | Copy a form the way the forms plugin's export/import does (new form ID), routing settings included: `title`, `status` |
 | `POST /pages/{id}/duplicate` | Copy a page like Duplicate Page does (content, template, custom fields, terms), swapping its forms: `title`, `slug`, `status`, `forms: {"77": 123}` |

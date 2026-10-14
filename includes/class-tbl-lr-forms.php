@@ -13,7 +13,7 @@ class TBL_LR_Forms {
 
 	const DEFAULTS = array(
 		'enabled'           => false,
-		'mode'              => 'redirect', // redirect | popup
+		'mode'              => 'redirect', // redirect | popup | send
 		'fallback_calendly' => '',
 		'wait_text'         => '',
 	);
@@ -34,6 +34,15 @@ class TBL_LR_Forms {
 	public static function is_enabled( $post_id ) {
 		$cfg = self::config( $post_id );
 		return ! empty( $cfg['enabled'] );
+	}
+
+	/**
+	 * "Just send it": the lead goes to the leads app, and the form then behaves
+	 * exactly as it always has - no "Please wait", no calendar. For forms that
+	 * are not sales leads, such as the travel agents' partner form.
+	 */
+	public static function sends_only( $cfg ) {
+		return isset( $cfg['mode'] ) && 'send' === $cfg['mode'];
 	}
 
 	/** Every form with routing on: post id => settings the browser needs. */
@@ -79,7 +88,7 @@ class TBL_LR_Forms {
 			</p>
 		<?php endif; ?>
 
-		<?php if ( ! empty( $cfg['enabled'] ) && 'popup' !== $cfg['mode'] && ! self::has_redirect( $post->ID ) ) : ?>
+		<?php if ( ! empty( $cfg['enabled'] ) && 'redirect' === $cfg['mode'] && ! self::has_redirect( $post->ID ) ) : ?>
 			<p style="background:#fcf9e8;border-left:3px solid #dba617;padding:6px 8px">
 				This form has no Redirect action, so visitors stay on the page and the calendar opens in a popup. Add a Redirect action to send them to a thank-you page.
 			</p>
@@ -87,9 +96,11 @@ class TBL_LR_Forms {
 
 		<p><strong>After submit</strong></p>
 		<p style="margin-top:0">
-			<label><input type="radio" name="tbl_lr[mode]" value="redirect" <?php checked( 'popup' !== $cfg['mode'] ); ?>> Go to the thank-you page, with the travel designer's calendar there</label><br>
+			<label><input type="radio" name="tbl_lr[mode]" value="redirect" <?php checked( 'redirect' === $cfg['mode'] ); ?>> Go to the thank-you page, with the travel designer's calendar there</label><br>
 			<span class="description" style="margin-left:24px;display:block">Uses this form's Redirect action. Put <code>[tbl_calendly]</code> on that page.</span>
-			<label><input type="radio" name="tbl_lr[mode]" value="popup" <?php checked( 'popup' === $cfg['mode'] ); ?>> Stay on this page and open the calendar in a popup</label>
+			<label><input type="radio" name="tbl_lr[mode]" value="popup" <?php checked( 'popup' === $cfg['mode'] ); ?>> Stay on this page and open the calendar in a popup</label><br>
+			<label><input type="radio" name="tbl_lr[mode]" value="send" <?php checked( 'send' === $cfg['mode'] ); ?>> Just send it: no calendar</label>
+			<span class="description" style="margin-left:24px;display:block">The form shows its own message or redirect, as without this add-on. For forms that are not sales leads, such as a partner form.</span>
 		</p>
 
 		<p>
@@ -138,7 +149,7 @@ class TBL_LR_Forms {
 	public static function sanitize_config( $in ) {
 		return array(
 			'enabled'           => ! empty( $in['enabled'] ),
-			'mode'              => ( isset( $in['mode'] ) && 'popup' === $in['mode'] ) ? 'popup' : 'redirect',
+			'mode'              => ( isset( $in['mode'] ) && in_array( $in['mode'], array( 'popup', 'send' ), true ) ) ? $in['mode'] : 'redirect',
 			'fallback_calendly' => TBL_LR_Settings::calendly_url( isset( $in['fallback_calendly'] ) ? $in['fallback_calendly'] : '' ),
 			'wait_text'         => isset( $in['wait_text'] ) ? sanitize_text_field( $in['wait_text'] ) : '',
 		);

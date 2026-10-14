@@ -15,6 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  *    forms plugin's JSON reply, via an output buffer, as `data.tbl_routing`.
  *    The calendar also goes onto the thank-you redirect URL (`tbl_cal`,
  *    `tbl_td`), so redirect mode works even if the browser script cannot run.
+ *
+ * A "Just send it" form is sent the same way, but its reply is left alone, so
+ * the form behaves as it does without the add-on.
  */
 class TBL_LR_Submit {
 
@@ -52,6 +55,8 @@ class TBL_LR_Submit {
 			$sub_id,
 			$multi ? array( 'current' => $total, 'max' => $total, 'final' => true ) : null
 		) );
+
+		if ( TBL_LR_Forms::sends_only( $cfg ) ) { return; }
 
 		self::$routing = self::routing( $answer, $cfg, $fields );
 		// Terrific Forms answers with wp_send_json_success() right after this

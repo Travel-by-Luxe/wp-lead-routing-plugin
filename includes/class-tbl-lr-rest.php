@@ -229,7 +229,7 @@ class TBL_LR_Rest {
 		return $out;
 	}
 
-	/** routing: { enabled, mode: redirect|popup, fallback_calendly, wait_text } - only the keys sent change. */
+	/** routing: { enabled, mode: redirect|popup|send, fallback_calendly, wait_text } - only the keys sent change. */
 	public static function save_routing( WP_REST_Request $request ) {
 		$id = (int) $request['id'];
 		if ( ! tbl_lr_forms_available() || TF_CPT !== get_post_type( $id ) ) {

@@ -35,6 +35,8 @@ class TBL_LR_Frontend {
 		$forms = array();
 		if ( tbl_lr_forms_available() ) {
 			foreach ( TBL_LR_Forms::enabled_forms() as $id => $cfg ) {
+				// Nothing for the browser to do on a "Just send it" form.
+				if ( TBL_LR_Forms::sends_only( $cfg ) ) { continue; }
 				$forms[ $id ] = array(
 					'mode'      => $cfg['mode'],
 					'wait_text' => $cfg['wait_text'],
