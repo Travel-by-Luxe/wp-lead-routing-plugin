@@ -3,7 +3,7 @@
  * Plugin Name:       TBL Lead Routing
  * Plugin URI:        https://github.com/Travel-by-Luxe/wp-lead-routing-plugin
  * Description:       Sends Terrific Forms leads to the Travel by Luxe leads app (leads.travelbyluxe.com), which picks the travel designer, and shows the visitor that travel designer's Calendly - on the thank-you page or in a popup, chosen per form.
- * Version:           1.8.0
+ * Version:           1.9.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Requires Plugins:  terrific-digital
@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-define( 'TBL_LR_VERSION', '1.8.0' );
+define( 'TBL_LR_VERSION', '1.9.0' );
 define( 'TBL_LR_FILE', __FILE__ );
 define( 'TBL_LR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TBL_LR_URL', plugin_dir_url( __FILE__ ) );
@@ -33,6 +33,7 @@ require_once TBL_LR_DIR . 'includes/class-tbl-lr-client.php';
 require_once TBL_LR_DIR . 'includes/class-tbl-lr-submit.php';
 require_once TBL_LR_DIR . 'includes/class-tbl-lr-frontend.php';
 require_once TBL_LR_DIR . 'includes/class-tbl-lr-rest.php';
+require_once TBL_LR_DIR . 'includes/class-tbl-lr-lead-links.php';
 
 /**
  * Updates come from this public repo's GitHub releases (a release.yml workflow
@@ -55,6 +56,7 @@ add_action( 'plugins_loaded', function () {
 	TBL_LR_Submit::init();
 	TBL_LR_Frontend::init();
 	TBL_LR_Rest::init();
+	TBL_LR_Lead_Links::init();
 }, 20 ); // after Terrific Digital (default priority), so its classes exist
 
 /** True when the Terrific Digital forms plugin is active and has what we hook into. */

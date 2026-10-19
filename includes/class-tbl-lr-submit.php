@@ -55,6 +55,8 @@ class TBL_LR_Submit {
 			$sub_id,
 			$multi ? array( 'current' => $total, 'max' => $total, 'final' => true ) : null
 		) );
+		// For the submission's "Open in Leads App" button.
+		TBL_LR_Lead_Links::remember( $sub_id, $answer );
 
 		if ( TBL_LR_Forms::sends_only( $cfg ) ) { return; }
 

@@ -23,6 +23,20 @@ On lp.travelbyluxe.com (since 14 Oct 2026):
 
 If the leads app is slow or down, the visitor gets the **fallback Calendly link** after the "Longest wait" setting (8 seconds by default). Terrific Forms still saves the submission either way, and the leads app retries any ticket it could not create.
 
+## In wp-admin: "Open in Leads App"
+
+Each submission from a routed form (Terrific Digital → Submissions → a submission) gets an
+**Open in Leads App** button next to "Back to submissions". It opens the lead that submission became
+in the leads app, in a new tab (sign in to the leads app first if asked; it brings you back to the lead).
+
+- When a form is sent, the leads app answers with the lead it made; the add-on keeps that lead's id
+  against the submission (the most recent 3,000, in the `tbl_lr_lead_links` option).
+- Older submissions, or ones where the leads app did not answer in time, still work: the button also
+  carries the submission's own link, and the leads app finds the lead by it.
+- No button on forms that are not routed, or on submissions flagged as spam (those are never sent).
+- Terrific Digital has no hook on that screen and is not changed: the add-on adds the button with a
+  few lines of script on that screen only.
+
 ## Requirements
 
 - WordPress 6.5+, PHP 7.4+

@@ -25,9 +25,7 @@ class TBL_LR_Client {
 			'timestamp' => gmdate( 'c' ),
 		);
 		if ( $sub_id ) {
-			$submission['submission_link'] = is_callable( array( 'TF_Submissions', 'page_url' ) )
-				? TF_Submissions::page_url( array( 'view' => (int) $sub_id ) )
-				: add_query_arg( array( 'page' => 'tf-submissions', 'view' => (int) $sub_id ), admin_url( 'admin.php' ) );
+			$submission['submission_link'] = self::submission_link( $sub_id );
 		}
 		$submission['page_url']   = isset( $ctx['page_url'] ) ? $ctx['page_url'] : '';
 		$submission['page_title'] = isset( $ctx['page_title'] ) ? $ctx['page_title'] : '';
@@ -53,6 +51,13 @@ class TBL_LR_Client {
 		);
 		if ( ! empty( $ctx['session'] ) ) { $payload['session'] = $ctx['session']; }
 		return $payload;
+	}
+
+	/** A submission's page in Terrific Digital → Submissions; the leads app keeps it as the lead's entry. */
+	public static function submission_link( $sub_id ) {
+		return is_callable( array( 'TF_Submissions', 'page_url' ) )
+			? TF_Submissions::page_url( array( 'view' => (int) $sub_id ) )
+			: add_query_arg( array( 'page' => 'tf-submissions', 'view' => (int) $sub_id ), admin_url( 'admin.php' ) );
 	}
 
 	protected static function request_args( $body, $timeout, $blocking ) {
