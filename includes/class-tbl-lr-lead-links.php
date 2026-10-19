@@ -92,19 +92,16 @@ class TBL_LR_Lead_Links {
 			link.rel = 'noopener';
 			link.className = 'page-title-action tbl-lr-open-lead';
 			link.title = 'Open the lead this submission became in the leads app';
-			link.style.display = 'inline-flex';
-			link.style.alignItems = 'center';
-			link.style.gap = '6px';
-			// The leads app's own icon: a lead dropping into the inbox.
-			link.innerHTML = '<svg viewBox="0 0 64 64" width="16" height="16" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1f56a8"/><path d="M32 10v20M23.5 22l8.5 8.5 8.5-8.5" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 38h11.5l4 6h11l4-6H53v9a7 7 0 0 1-7 7H18a7 7 0 0 1-7-7Z" fill="#fff"/></svg>';
+			// The leads app's own icon (a lead dropping into the inbox), set into the
+			// line like text so the button keeps WordPress's own size and alignment.
+			link.innerHTML = '<svg viewBox="0 0 64 64" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:5px"><rect width="64" height="64" rx="14" fill="#1f56a8"/><path d="M32 10v20M23.5 22l8.5 8.5 8.5-8.5" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 38h11.5l4 6h11l4-6H53v9a7 7 0 0 1-7 7H18a7 7 0 0 1-7-7Z" fill="#fff"/></svg>';
 			link.appendChild( document.createTextNode( 'Open in Leads App' ) );
-			var back = wrap.querySelector( 'a.page-title-action' ); // "← Back to submissions"
-			if ( back ) {
-				back.insertAdjacentElement( 'afterend', link );
-			} else {
-				var heading = wrap.querySelector( 'h1' );
-				if ( heading ) { heading.insertAdjacentElement( 'afterend', link ); }
-			}
+			// Right after "← Back to submissions" (the first of the screen's buttons).
+			var after = wrap.querySelector( 'a.page-title-action' ) || wrap.querySelector( 'h1' );
+			if ( ! after ) { return; }
+			after.insertAdjacentElement( 'afterend', link );
+			// The plugin's own buttons are spaced by the whitespace between them in its markup.
+			link.insertAdjacentText( 'beforebegin', ' ' );
 		} )();
 		</script>
 		<?php
